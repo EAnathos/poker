@@ -63,7 +63,6 @@ pub struct HandOdds {
 pub struct PokerApp {
     players: Vec<Player>,
     board:   Board,
-    dealer:  usize,
     picking: Option<CardSlot>,
     odds:    Vec<HandOdds>,
 }
@@ -73,7 +72,6 @@ impl Default for PokerApp {
         Self {
             players: vec![Player::default(); 2],
             board:   Board::default(),
-            dealer:  0,
             picking: None,
             odds:    vec![HandOdds::default(); 2],
         }
@@ -123,6 +121,20 @@ impl PokerApp {
 
     fn toggle_picking(&mut self, slot: CardSlot) {
         self.picking = if self.picking == Some(slot) { None } else { Some(slot) };
+    }
+
+    fn next_slot(&self, slot: CardSlot) -> CardSlot {
+        let n = self.players.len();
+        match slot {
+            CardSlot::Player(p, 0) => CardSlot::Player(p, 1),
+            CardSlot::Player(p, 1) => CardSlot::Player((p + 1) % n, 0),
+            CardSlot::Flop(0)      => CardSlot::Flop(1),
+            CardSlot::Flop(1)      => CardSlot::Flop(2),
+            CardSlot::Flop(2)      => CardSlot::Turn,
+            CardSlot::Turn         => CardSlot::River,
+            CardSlot::River        => CardSlot::River,
+            _                      => slot,
+        }
     }
 }
 
@@ -213,23 +225,10 @@ impl PokerApp {
             let px = center.x + player_rx * t.cos();
             let py = center.y + player_ry * t.sin();
 
-            // Dealer button (small circle above-right of the player zone)
-            if idx == self.dealer {
-                let dp = Pos2::new(px + P_CARD_W + 8.0, py - P_CARD_H / 2.0 - 2.0);
-                painter.circle_filled(dp, 10.0, Color32::WHITE);
-                painter.text(dp, egui::Align2::CENTER_CENTER, "D",
-                    FontId::proportional(10.0), Color32::BLACK);
-            }
-
-            // Player label — click it to move the dealer button here
+            // Player label
             let label_pos = Pos2::new(px, py - P_CARD_H / 2.0 - 14.0);
             painter.text(label_pos, egui::Align2::CENTER_CENTER,
                 format!("P{}", idx + 1), FontId::proportional(13.0), Color32::WHITE);
-
-            let label_rect = Rect::from_center_size(label_pos, Vec2::new(30.0, 16.0));
-            if ui.interact(label_rect, ui.id().with(("dealer", idx)), Sense::click()).clicked() {
-                self.dealer = idx;
-            }
 
             // 2 hole cards
             for c in 0..2usize {
@@ -257,8 +256,7 @@ impl PokerApp {
 
 impl PokerApp {
     fn show_player_panels(&mut self, ui: &mut egui::Ui) {
-        let mut clicked:    Option<CardSlot> = None;
-        let mut set_dealer: Option<usize>    = None;
+        let mut clicked:   Option<CardSlot> = None;
         let mut add_player = false;
 
         egui::ScrollArea::horizontal()
@@ -267,21 +265,13 @@ impl PokerApp {
                 ui.horizontal(|ui| {
                     let n = self.players.len();
                     for idx in 0..n {
-                        let is_dealer = self.dealer == idx;
-                        let cards     = self.players[idx].cards;
-                        let picking   = self.picking;
+                        let cards   = self.players[idx].cards;
+                        let picking = self.picking;
 
                         ui.group(|ui| {
                             ui.set_min_width(140.0);
                             ui.vertical(|ui| {
-                                ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new(format!("P{}", idx + 1)).strong());
-                                    if is_dealer {
-                                        ui.label(egui::RichText::new("BTN").color(Color32::YELLOW).small());
-                                    } else if ui.small_button("Set BTN").clicked() {
-                                        set_dealer = Some(idx);
-                                    }
-                                });
+                                ui.label(egui::RichText::new(format!("P{}", idx + 1)).strong());
 
                                 ui.horizontal(|ui| {
                                     for c in 0..2usize {
@@ -324,8 +314,7 @@ impl PokerApp {
                 });
             });
 
-        if let Some(slot) = clicked    { self.toggle_picking(slot); }
-        if let Some(idx)  = set_dealer { self.dealer = idx; }
+        if let Some(slot) = clicked { self.toggle_picking(slot); }
         if add_player {
             self.players.push(Player::default());
             self.odds.push(HandOdds::default());
@@ -361,7 +350,8 @@ impl PokerApp {
                 ui.horizontal_top(|ui| {
                     for (idx, odds) in self.odds.iter().enumerate() {
                         ui.group(|ui| {
-                            ui.set_min_width(250.0);
+                            ui.set_min_width(270.0);
+                            ui.set_max_width(270.0);
                             ui.vertical(|ui| {
                                 ui.label(
                                     egui::RichText::new(format!("Joueur {}", idx + 1)).strong()
@@ -430,6 +420,7 @@ impl PokerApp {
         let mut selected: Option<Card> = None;
         let mut remove = false;
         let mut close  = false;
+        let shift_held = ctx.input(|i| i.modifiers.shift);
 
         egui::Window::new("Choisir une carte")
             .collapsible(false)
@@ -483,7 +474,11 @@ impl PokerApp {
 
         if let Some(card) = selected {
             self.set_card(picking, Some(card));
-            self.picking = None;
+            if shift_held {
+                self.picking = Some(self.next_slot(picking));
+            } else {
+                self.picking = None;
+            }
         } else if remove {
             self.set_card(picking, None);
             self.picking = None;
