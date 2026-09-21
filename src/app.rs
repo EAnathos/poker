@@ -29,11 +29,27 @@ struct Board {
     river: Option<Card>,
 }
 
+// Probabilités pour un joueur — None = pas encore calculé
+#[derive(Clone, Default)]
+pub struct HandOdds {
+    pub win:        Option<f32>,
+    pub pair:       Option<f32>,
+    pub two_pair:   Option<f32>,
+    pub three_kind: Option<f32>,
+    pub straight:   Option<f32>,
+    pub flush:      Option<f32>,
+    pub full_house: Option<f32>,
+    pub four_kind:  Option<f32>,
+    pub str_flush:  Option<f32>,
+    pub roy_flush:  Option<f32>,
+}
+
 pub struct PokerApp {
     players: Vec<Player>,
     board:   Board,
     dealer:  usize,
     picking: Option<CardSlot>,
+    odds:    Vec<HandOdds>,
 }
 
 impl Default for PokerApp {
@@ -43,6 +59,7 @@ impl Default for PokerApp {
             board:   Board::default(),
             dealer:  0,
             picking: None,
+            odds:    vec![HandOdds::default(); 2],
         }
     }
 }
@@ -289,8 +306,78 @@ impl PokerApp {
         if let Some(idx)  = set_dealer { self.dealer = idx; }
         if add_player {
             self.players.push(Player::default());
+            self.odds.push(HandOdds::default());
             self.picking = None;
         }
+    }
+}
+
+// ── Equity section ──────────────────────────────────────────────────────────
+
+impl PokerApp {
+    fn show_equity_section(&self, ui: &mut egui::Ui) {
+        ui.separator();
+        ui.add_space(4.0);
+        ui.label(egui::RichText::new("Équités").strong().size(14.0));
+        ui.add_space(6.0);
+
+        // (label, field accessor)
+        let hands: &[(&str, fn(&HandOdds) -> Option<f32>)] = &[
+            ("Paire",           |o| o.pair),
+            ("Double paire",    |o| o.two_pair),
+            ("Brelan",          |o| o.three_kind),
+            ("Quinte",          |o| o.straight),
+            ("Couleur",         |o| o.flush),
+            ("Full",            |o| o.full_house),
+            ("Carré",           |o| o.four_kind),
+            ("Quinte flush",    |o| o.str_flush),
+            ("Q. flush royale", |o| o.roy_flush),
+        ];
+
+        egui::ScrollArea::horizontal().id_salt("equity_scroll").show(ui, |ui| {
+            ui.horizontal_top(|ui| {
+                for (idx, odds) in self.odds.iter().enumerate() {
+                    ui.group(|ui| {
+                        ui.set_min_width(200.0);
+                        ui.vertical(|ui| {
+                            ui.label(egui::RichText::new(format!("Joueur {}", idx + 1)).strong());
+                            ui.add_space(4.0);
+
+                            // Win probability — prominent green bar
+                            let win_val  = odds.win.unwrap_or(0.0);
+                            let win_text = fmt_pct("Victoire", odds.win);
+                            ui.add(egui::ProgressBar::new(win_val)
+                                .text(win_text)
+                                .fill(Color32::from_rgb(45, 170, 75))
+                                .desired_width(190.0));
+
+                            ui.add_space(6.0);
+                            ui.separator();
+                            ui.add_space(4.0);
+
+                            // Hand probabilities
+                            for (name, getter) in hands {
+                                let val  = getter(odds).unwrap_or(0.0);
+                                let text = fmt_pct(name, getter(odds));
+                                ui.add(egui::ProgressBar::new(val)
+                                    .text(text)
+                                    .fill(Color32::from_rgb(50, 90, 160))
+                                    .desired_width(190.0));
+                                ui.add_space(2.0);
+                            }
+                        });
+                    });
+                    ui.add_space(4.0);
+                }
+            });
+        });
+    }
+}
+
+fn fmt_pct(label: &str, v: Option<f32>) -> String {
+    match v {
+        Some(p) => format!("{}: {:.1}%", label, p * 100.0),
+        None    => format!("{}: —", label),
     }
 }
 
@@ -374,6 +461,9 @@ impl eframe::App for PokerApp {
         self.show_table(ui);
         ui.add_space(16.0);
         self.show_player_panels(ui);
+
+        ui.add_space(12.0);
+        self.show_equity_section(ui);
 
         if self.picking.is_some() {
             let ctx = ui.ctx().clone();
