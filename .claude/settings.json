@@ -1,0 +1,21 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "statusMessage": "cargo fmt...",
+            "command": "python3 -c \"import sys,json; d=json.load(sys.stdin); f=d.get('tool_input',{}).get('file_path','') or d.get('tool_response',{}).get('filePath',''); print(f)\" | grep -q '\\.rs$' && /home/eanathos/.cargo/bin/cargo fmt --manifest-path /home/eanathos/Documents/Github/poker/Cargo.toml 2>&1 || true"
+          },
+          {
+            "type": "command",
+            "statusMessage": "cargo clippy...",
+            "command": "python3 -c \"import sys,json; d=json.load(sys.stdin); f=d.get('tool_input',{}).get('file_path','') or d.get('tool_response',{}).get('filePath',''); print(f)\" | grep -q '\\.rs$' && /home/eanathos/.cargo/bin/cargo clippy --manifest-path /home/eanathos/Documents/Github/poker/Cargo.toml 2>&1 || true"
+          }
+        ]
+      }
+    ]
+  }
+}
