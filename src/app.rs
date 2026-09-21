@@ -492,12 +492,16 @@ impl PokerApp {
 
 impl PokerApp {
     fn run_simulation(&mut self) {
-        let players: Vec<[Option<Card>; 2]> = self.players.iter().map(|p| p.cards).collect();
-        let board = [
-            self.board.flop[0], self.board.flop[1], self.board.flop[2],
-            self.board.turn, self.board.river,
-        ];
-        let results = crate::eval::simulate(&players, &board, 10_000);
+        use crate::eval::{Condition, Evaluator, naive::NaiveEvaluator};
+        let condition = Condition {
+            players: self.players.iter().map(|p| p.cards).collect(),
+            board: [
+                self.board.flop[0], self.board.flop[1], self.board.flop[2],
+                self.board.turn, self.board.river,
+            ],
+            iterations: 10_000,
+        };
+        let results = NaiveEvaluator.run(&condition);
         self.odds = results.into_iter().map(|r| HandOdds {
             win:        Some(r.win),
             pair:       Some(r.pair),

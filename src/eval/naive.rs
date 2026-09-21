@@ -1,5 +1,6 @@
-use crate::card::{Card, Rank, Suit};
 use std::collections::HashSet;
+use crate::card::{Card, Rank, Suit};
+use super::{Condition, Evaluator, SimOdds};
 
 // ── Rank value ────────────────────────────────────────────────────────────────
 
@@ -57,7 +58,6 @@ fn evaluate_five(cards: [Card; 5]) -> HandValue {
         .map(|r| (r, freq[r as usize]))
         .collect();
     counts.sort_unstable_by(|a, b| b.1.cmp(&a.1).then(b.0.cmp(&a.0)));
-    // tiebreak by rank-frequency priority (quad rank first, then kicker, etc.)
     let tb_ranks: Vec<u8> = counts.iter().map(|&(r, _)| r).collect();
 
     // Straight flush / royal flush
@@ -73,34 +73,27 @@ fn evaluate_five(cards: [Card; 5]) -> HandValue {
     if counts[0].1 == 4 {
         return HandValue { category: HandCategory::FourKind, tiebreak: tb_ranks };
     }
-
     if counts[0].1 == 3 && counts[1].1 == 2 {
         return HandValue { category: HandCategory::FullHouse, tiebreak: tb_ranks };
     }
-
     if is_flush {
         return HandValue { category: HandCategory::Flush, tiebreak: vals };
     }
-
     if is_straight {
         return HandValue { category: HandCategory::Straight, tiebreak: vec![vals[0]] };
     }
     if is_wheel {
         return HandValue { category: HandCategory::Straight, tiebreak: vec![5] };
     }
-
     if counts[0].1 == 3 {
         return HandValue { category: HandCategory::ThreeKind, tiebreak: tb_ranks };
     }
-
     if counts[0].1 == 2 && counts[1].1 == 2 {
         return HandValue { category: HandCategory::TwoPair, tiebreak: tb_ranks };
     }
-
     if counts[0].1 == 2 {
         return HandValue { category: HandCategory::Pair, tiebreak: tb_ranks };
     }
-
     HandValue { category: HandCategory::HighCard, tiebreak: vals }
 }
 
@@ -152,28 +145,17 @@ impl Rng {
     }
 }
 
-// ── Public result type ────────────────────────────────────────────────────────
+// ── NaiveEvaluator ───────────────────────────────────────────────────────────
 
-pub struct SimOdds {
-    pub win:        f32,
-    pub pair:       f32,
-    pub two_pair:   f32,
-    pub three_kind: f32,
-    pub straight:   f32,
-    pub flush:      f32,
-    pub full_house: f32,
-    pub four_kind:  f32,
-    pub str_flush:  f32,
-    pub roy_flush:  f32,
+pub struct NaiveEvaluator;
+
+impl Evaluator for NaiveEvaluator {
+    fn run(&self, condition: &Condition) -> Vec<SimOdds> {
+        simulate(&condition.players, &condition.board, condition.iterations)
+    }
 }
 
-// ── Monte Carlo simulation ────────────────────────────────────────────────────
-
-/// Simule `iterations` boards aléatoires et retourne les probabilités par joueur.
-///
-/// - `players`: cartes en main de chaque joueur (`None` = inconnue, sera tirée).
-/// - `board`: [flop0, flop1, flop2, turn, river] (`None` = inconnue).
-pub fn simulate(
+fn simulate(
     players:    &[[Option<Card>; 2]],
     board:      &[Option<Card>; 5],
     iterations: u32,
@@ -181,7 +163,6 @@ pub fn simulate(
     let n = players.len();
     if n == 0 { return vec![]; }
 
-    // Deck restant = 52 cartes moins toutes les cartes déjà connues
     let known: HashSet<Card> = players.iter()
         .flat_map(|p| p.iter())
         .chain(board.iter())
@@ -210,27 +191,24 @@ pub fn simulate(
         rng.shuffle(&mut base_deck);
         let mut cur = 0usize;
 
-        // Distribue les cartes inconnues de chaque joueur
         let hole_cards: Vec<[Card; 2]> = players.iter().map(|p| {
             let h0 = p[0].unwrap_or_else(|| { let c = base_deck[cur]; cur += 1; c });
             let h1 = p[1].unwrap_or_else(|| { let c = base_deck[cur]; cur += 1; c });
             [h0, h1]
         }).collect();
 
-        // Complète le board (cartes communes, partagées par tous)
+        // Board partagé entre tous les joueurs — complété une seule fois
         let mut filled_board = Vec::with_capacity(5);
         for slot in board {
             filled_board.push(slot.unwrap_or_else(|| { let c = base_deck[cur]; cur += 1; c }));
         }
 
-        // Évalue la meilleure main de chaque joueur (2 cartes + 5 communes)
         let hand_values: Vec<HandValue> = hole_cards.iter().map(|h| {
             let mut cards = vec![h[0], h[1]];
             cards.extend_from_slice(&filled_board);
             best_hand(&cards)
         }).collect();
 
-        // Détermine le(s) gagnant(s) ; partage égal en cas d'égalité
         let best = hand_values.iter().max().unwrap();
         let winners: Vec<usize> = hand_values.iter().enumerate()
             .filter(|(_, v)| *v == best)
@@ -239,7 +217,6 @@ pub fn simulate(
         let share = 1.0 / winners.len() as f32;
         for &w in &winners { win_score[w] += share; }
 
-        // Comptabilise la catégorie de main pour chaque joueur
         for (i, hv) in hand_values.iter().enumerate() {
             match hv.category {
                 HandCategory::Pair          => pair_count[i]       += 1,
