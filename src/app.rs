@@ -45,6 +45,8 @@ struct Board {
     river: Option<Card>,
 }
 
+type HandOddsExtractor = fn(&HandOdds) -> Option<f32>;
+
 // Per-player probabilities — None means not yet calculated
 #[derive(Clone, Default)]
 pub struct HandOdds {
@@ -87,30 +89,26 @@ impl PokerApp {
         let mut set = HashSet::new();
         for (pi, player) in self.players.iter().enumerate() {
             for (ci, c) in player.cards.iter().enumerate() {
-                if p != Some(CardSlot::Player(pi, ci)) {
-                    if let Some(c) = c {
+                if p != Some(CardSlot::Player(pi, ci))
+                    && let Some(c) = c {
                         set.insert(*c);
                     }
-                }
             }
         }
         for (i, c) in self.board.flop.iter().enumerate() {
-            if p != Some(CardSlot::Flop(i)) {
-                if let Some(c) = c {
+            if p != Some(CardSlot::Flop(i))
+                && let Some(c) = c {
                     set.insert(*c);
                 }
-            }
         }
-        if p != Some(CardSlot::Turn) {
-            if let Some(c) = self.board.turn {
+        if p != Some(CardSlot::Turn)
+            && let Some(c) = self.board.turn {
                 set.insert(c);
             }
-        }
-        if p != Some(CardSlot::River) {
-            if let Some(c) = self.board.river {
+        if p != Some(CardSlot::River)
+            && let Some(c) = self.board.river {
                 set.insert(c);
             }
-        }
         set
     }
 
@@ -226,7 +224,7 @@ impl PokerApp {
         let center = r.center();
 
         // Table rx scales with window width but is capped so players stay in the painter area
-        let table_rx = (avail_w * 0.22).min(260.0).max(160.0);
+        let table_rx = (avail_w * 0.22).clamp(160.0, 260.0);
         let player_rx = table_rx + 14.0 + PLAYER_GAP; // just outside the border
         let player_ry = TABLE_RY + 14.0 + PLAYER_GAP;
 
@@ -343,10 +341,10 @@ impl PokerApp {
                                 ui.label(egui::RichText::new(format!("P{}", idx + 1)).strong());
 
                                 ui.horizontal(|ui| {
-                                    for c in 0..2usize {
+                                    for (c, &card_opt) in cards.iter().enumerate() {
                                         let slot = CardSlot::Player(idx, c);
                                         let is_active = picking == Some(slot);
-                                        let (label, text_color) = match cards[c] {
+                                        let (label, text_color) = match card_opt {
                                             Some(card) => (
                                                 card.label(),
                                                 match card.suit {
@@ -361,7 +359,7 @@ impl PokerApp {
 
                                         let bg = if is_active {
                                             Color32::from_rgb(60, 55, 20)
-                                        } else if cards[c].is_some() {
+                                        } else if card_opt.is_some() {
                                             Color32::WHITE
                                         } else {
                                             Color32::from_gray(45)
@@ -384,15 +382,14 @@ impl PokerApp {
                         });
                     }
 
-                    if n < MAX_PLAYERS {
-                        if ui
+                    if n < MAX_PLAYERS
+                        && ui
                             .button(egui::RichText::new("+").size(22.0))
                             .on_hover_text("Ajouter un joueur")
                             .clicked()
                         {
                             add_player = true;
                         }
-                    }
                 });
             });
 
@@ -416,7 +413,7 @@ impl PokerApp {
         ui.label(egui::RichText::new("Équités").strong().size(14.0));
         ui.add_space(8.0);
 
-        let hand_rows: &[(&str, fn(&HandOdds) -> Option<f32>)] = &[
+        let hand_rows: &[(&str, HandOddsExtractor)] = &[
             ("Carte haute", |o: &HandOdds| o.high_card),
             ("Paire", |o: &HandOdds| o.pair),
             ("Double paire", |o: &HandOdds| o.two_pair),
@@ -567,14 +564,13 @@ impl PokerApp {
                     if ui.button("Fermer").clicked() {
                         close = true;
                     }
-                    if current.is_some() {
-                        if ui
+                    if current.is_some()
+                        && ui
                             .button(egui::RichText::new("Supprimer").color(Color32::LIGHT_RED))
                             .clicked()
                         {
                             remove = true;
                         }
-                    }
                 });
             });
 

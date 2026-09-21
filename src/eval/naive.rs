@@ -144,7 +144,7 @@ fn evaluate_five(cards: [Card; 5]) -> HandValue {
 
 fn best_hand(cards: &[Card]) -> HandValue {
     let n = cards.len();
-    debug_assert!(n >= 5 && n <= 7);
+    debug_assert!((5..=7).contains(&n));
     let mut best: Option<HandValue> = None;
 
     for i0 in 0..n - 4 {
@@ -154,7 +154,7 @@ fn best_hand(cards: &[Card]) -> HandValue {
                     for i4 in i3 + 1..n {
                         let val =
                             evaluate_five([cards[i0], cards[i1], cards[i2], cards[i3], cards[i4]]);
-                        if best.as_ref().map_or(true, |b| val > *b) {
+                        if best.as_ref().is_none_or(|b| val > *b) {
                             best = Some(val);
                         }
                     }
@@ -187,7 +187,7 @@ impl Rng {
         self.0
     }
 
-    fn shuffle(&mut self, v: &mut Vec<Card>) {
+    fn shuffle(&mut self, v: &mut [Card]) {
         for i in (1..v.len()).rev() {
             let j = (self.next() as usize) % (i + 1);
             v.swap(i, j);
