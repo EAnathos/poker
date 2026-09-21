@@ -25,14 +25,14 @@ Sup de Vinci - RNCP Bloc 4 - Session E42 Optimisations
 
 | Composant | Détail |
 |-----------|--------|
-| CPU | <!-- ex. AMD Ryzen 9 5900X --> |
-| Cœurs / Threads | <!-- ex. 12C / 24T --> |
-| Cache L1 | <!-- ex. 32 KB par cœur (données) --> |
-| Cache L2 | <!-- ex. 512 KB par cœur --> |
-| Cache L3 | <!-- ex. 64 MB partagé --> |
-| RAM | <!-- ex. 64 GB DDR4-3200 --> |
-| OS | <!-- ex. Ubuntu 24.04 LTS --> |
-| Runtime Rust | <!-- ex. rustc 1.XX.X (stable) --> |
+| CPU | AMD Rysen 7 7735U |
+| Cœurs / Threads | 8C 16T |
+| Cache L1 | 512 Ko |
+| Cache L2 | 4.0 Mo |
+| Cache L3 | 16.0 Mo |
+| RAM | 16Go 	LPDDR5 6400 MT/s |
+| OS | Windows 11 |
+| Runtime Rust | rustc 1.98.1 |
 
 ### 1.2 Protocole de mesure (Hyperfine)
 
