@@ -90,25 +90,29 @@ impl PokerApp {
         for (pi, player) in self.players.iter().enumerate() {
             for (ci, c) in player.cards.iter().enumerate() {
                 if p != Some(CardSlot::Player(pi, ci))
-                    && let Some(c) = c {
-                        set.insert(*c);
-                    }
+                    && let Some(c) = c
+                {
+                    set.insert(*c);
+                }
             }
         }
         for (i, c) in self.board.flop.iter().enumerate() {
             if p != Some(CardSlot::Flop(i))
-                && let Some(c) = c {
-                    set.insert(*c);
-                }
+                && let Some(c) = c
+            {
+                set.insert(*c);
+            }
         }
         if p != Some(CardSlot::Turn)
-            && let Some(c) = self.board.turn {
-                set.insert(c);
-            }
+            && let Some(c) = self.board.turn
+        {
+            set.insert(c);
+        }
         if p != Some(CardSlot::River)
-            && let Some(c) = self.board.river {
-                set.insert(c);
-            }
+            && let Some(c) = self.board.river
+        {
+            set.insert(c);
+        }
         set
     }
 
@@ -387,9 +391,9 @@ impl PokerApp {
                             .button(egui::RichText::new("+").size(22.0))
                             .on_hover_text("Ajouter un joueur")
                             .clicked()
-                        {
-                            add_player = true;
-                        }
+                    {
+                        add_player = true;
+                    }
                 });
             });
 
@@ -568,9 +572,9 @@ impl PokerApp {
                         && ui
                             .button(egui::RichText::new("Supprimer").color(Color32::LIGHT_RED))
                             .clicked()
-                        {
-                            remove = true;
-                        }
+                    {
+                        remove = true;
+                    }
                 });
             });
 
