@@ -12,14 +12,14 @@ Sup de Vinci - RNCP Bloc 4 - Session E42 Optimisations
 
 | Composant | Détail |
 |-----------|--------|
-| CPU | <!-- ex. Intel Core i7-12700H --> |
-| Cœurs / Threads | <!-- ex. 14C / 20T --> |
-| Cache L1 | <!-- ex. 48 KB par cœur (données) --> |
-| Cache L2 | <!-- ex. 1.25 MB par cœur --> |
-| Cache L3 | <!-- ex. 24 MB partagé --> |
-| RAM | <!-- ex. 32 GB DDR5-4800 --> |
-| OS | <!-- ex. Arch Linux kernel 7.1.11-arch1-1 --> |
-| Runtime Rust | <!-- ex. rustc 1.XX.X (stable) --> |
+| CPU | AMD Ryzen 5 5600H with Radeon Graphics |
+| Cœurs / Threads | 6C / 12T |
+| Cache L1 | 32 KiB par cœur (données) + 32 KiB par cœur (instructions) |
+| Cache L2 | 512 KiB par cœur |
+| Cache L3 | 16 MiB partagé |
+| RAM | 16 GiB DDR4-3200 (2×8 GiB) |
+| OS | Arch Linux kernel 7.1.11 |
+| Runtime Rust | rustc 1.98.1 |
 
 **Setup B**
 
