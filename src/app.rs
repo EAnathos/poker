@@ -488,22 +488,55 @@ impl PokerApp {
     }
 }
 
+// ── Simulation ────────────────────────────────────────────────────────────────
+
+impl PokerApp {
+    fn run_simulation(&mut self) {
+        let players: Vec<[Option<Card>; 2]> = self.players.iter().map(|p| p.cards).collect();
+        let board = [
+            self.board.flop[0], self.board.flop[1], self.board.flop[2],
+            self.board.turn, self.board.river,
+        ];
+        let results = crate::eval::simulate(&players, &board, 10_000);
+        self.odds = results.into_iter().map(|r| HandOdds {
+            win:        Some(r.win),
+            pair:       Some(r.pair),
+            two_pair:   Some(r.two_pair),
+            three_kind: Some(r.three_kind),
+            straight:   Some(r.straight),
+            flush:      Some(r.flush),
+            full_house: Some(r.full_house),
+            four_kind:  Some(r.four_kind),
+            str_flush:  Some(r.str_flush),
+            roy_flush:  Some(r.roy_flush),
+        }).collect();
+    }
+}
+
 // ── eframe::App ───────────────────────────────────────────────────────────────
 
 impl eframe::App for PokerApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         ui.ctx().set_visuals(egui::Visuals::dark());
 
-        // Table (fixed height, painter-based)
         self.show_table(ui);
 
-        // Scrollable area for panels + equity
         egui::ScrollArea::vertical()
             .id_salt("bottom_scroll")
             .show(ui, |ui| {
                 ui.add_space(8.0);
                 self.show_player_panels(ui);
                 ui.add_space(8.0);
+
+                ui.horizontal(|ui| {
+                    if ui.button(
+                        egui::RichText::new("Calculer les équités").size(13.0)
+                    ).clicked() {
+                        self.run_simulation();
+                    }
+                });
+
+                ui.add_space(4.0);
                 self.show_equity_section(ui);
                 ui.add_space(8.0);
             });

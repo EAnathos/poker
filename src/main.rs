@@ -1,5 +1,6 @@
 mod app;
 mod card;
+mod eval;
 
 fn main() {
     let options = eframe::NativeOptions {
