@@ -175,6 +175,7 @@ fn simulate(
         .collect();
 
     let mut win_score        = vec![0.0f32; n];
+    let mut high_card_count  = vec![0u32; n];
     let mut pair_count       = vec![0u32; n];
     let mut two_pair_count   = vec![0u32; n];
     let mut three_kind_count = vec![0u32; n];
@@ -219,6 +220,7 @@ fn simulate(
 
         for (i, hv) in hand_values.iter().enumerate() {
             match hv.category {
+                HandCategory::HighCard      => high_card_count[i]      += 1,
                 HandCategory::Pair          => pair_count[i]       += 1,
                 HandCategory::TwoPair       => two_pair_count[i]   += 1,
                 HandCategory::ThreeKind     => three_kind_count[i] += 1,
@@ -228,7 +230,6 @@ fn simulate(
                 HandCategory::FourKind      => four_kind_count[i]  += 1,
                 HandCategory::StraightFlush => str_flush_count[i]  += 1,
                 HandCategory::RoyalFlush    => roy_flush_count[i]  += 1,
-                HandCategory::HighCard      => {}
             }
         }
     }
@@ -236,6 +237,7 @@ fn simulate(
     let total = iterations as f32;
     (0..n).map(|i| SimOdds {
         win:        win_score[i]         / total,
+        high_card:  high_card_count[i]   as f32 / total,
         pair:       pair_count[i]        as f32 / total,
         two_pair:   two_pair_count[i]    as f32 / total,
         three_kind: three_kind_count[i]  as f32 / total,

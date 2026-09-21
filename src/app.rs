@@ -49,6 +49,7 @@ struct Board {
 #[derive(Clone, Default)]
 pub struct HandOdds {
     pub win:        Option<f32>,
+    pub high_card:  Option<f32>,
     pub pair:       Option<f32>,
     pub two_pair:   Option<f32>,
     pub three_kind: Option<f32>,
@@ -333,6 +334,7 @@ impl PokerApp {
         ui.add_space(8.0);
 
         let hand_rows: &[(&str, fn(&HandOdds) -> Option<f32>)] = &[
+            ("Carte haute",     |o: &HandOdds| o.high_card),
             ("Paire",           |o: &HandOdds| o.pair),
             ("Double paire",    |o: &HandOdds| o.two_pair),
             ("Brelan",          |o: &HandOdds| o.three_kind),
@@ -504,6 +506,7 @@ impl PokerApp {
         let results = NaiveEvaluator.run(&condition);
         self.odds = results.into_iter().map(|r| HandOdds {
             win:        Some(r.win),
+            high_card:  Some(r.high_card),
             pair:       Some(r.pair),
             two_pair:   Some(r.two_pair),
             three_kind: Some(r.three_kind),

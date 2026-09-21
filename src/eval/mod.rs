@@ -16,6 +16,7 @@ pub struct Condition {
 
 pub struct SimOdds {
     pub win:        f32,
+    pub high_card:  f32,
     pub pair:       f32,
     pub two_pair:   f32,
     pub three_kind: f32,
