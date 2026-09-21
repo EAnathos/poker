@@ -2,13 +2,29 @@ use egui::{Color32, CornerRadius, FontId, Pos2, Rect, Sense, Stroke, StrokeKind,
 use std::collections::HashSet;
 use crate::card::{Card, Rank, Suit};
 
+// ── Constants ────────────────────────────────────────────────────────────────
+
 const TABLE_FELT:   Color32 = Color32::from_rgb(35, 90, 45);
 const TABLE_BORDER: Color32 = Color32::from_rgb(90, 60, 20);
 const CARD_EMPTY:   Color32 = Color32::from_rgb(55, 55, 55);
 const CARD_FULL:    Color32 = Color32::WHITE;
 const MAX_PLAYERS:  usize   = 9;
 
-// Identifies which card slot is being edited
+// Table geometry (screen-space, fixed)
+const TABLE_RY:  f32 = 108.0; // oval vertical radius
+const PAINTER_H: f32 = 450.0; // vertical space allocated to the table painter
+// PLAYER_RY = TABLE_RY + gap; kept just outside the table border (14px)
+const PLAYER_GAP: f32 = 48.0; // gap between table border and player center
+
+// Card sizes
+const P_CARD_W: f32 = 30.0; // player hole cards (table view)
+const P_CARD_H: f32 = 44.0;
+const C_CARD_W: f32 = 46.0; // community cards
+const C_CARD_H: f32 = 69.0;
+const C_GAP:    f32 = 6.0;
+
+// ── Data ─────────────────────────────────────────────────────────────────────
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 enum CardSlot {
     Player(usize, usize), // (player_idx, card_idx)
@@ -29,7 +45,7 @@ struct Board {
     river: Option<Card>,
 }
 
-// Probabilités pour un joueur — None = pas encore calculé
+// Per-player probabilities — None means not yet calculated
 #[derive(Clone, Default)]
 pub struct HandOdds {
     pub win:        Option<f32>,
@@ -64,8 +80,9 @@ impl Default for PokerApp {
     }
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 impl PokerApp {
-    // All currently assigned cards, excluding the slot being edited (so it can be re-picked)
     fn used_cards(&self) -> HashSet<Card> {
         let p = self.picking;
         let mut set = HashSet::new();
@@ -109,116 +126,121 @@ impl PokerApp {
     }
 }
 
-// ── Drawing helpers ─────────────────────────────────────────────────────────
+// ── Painter helpers ──────────────────────────────────────────────────────────
 
-impl PokerApp {
-    fn paint_ellipse(painter: &egui::Painter, center: Pos2, rx: f32, ry: f32, color: Color32) {
-        let n = 80usize;
-        let pts: Vec<Pos2> = (0..n).map(|i| {
-            let t = i as f32 * std::f32::consts::TAU / n as f32;
-            Pos2::new(center.x + rx * t.cos(), center.y + ry * t.sin())
-        }).collect();
-        painter.add(egui::Shape::convex_polygon(pts, color, Stroke::NONE));
-    }
+fn paint_ellipse(painter: &egui::Painter, center: Pos2, rx: f32, ry: f32, color: Color32) {
+    const N: usize = 80;
+    let pts: Vec<Pos2> = (0..N).map(|i| {
+        let t = i as f32 * std::f32::consts::TAU / N as f32;
+        Pos2::new(center.x + rx * t.cos(), center.y + ry * t.sin())
+    }).collect();
+    painter.add(egui::Shape::convex_polygon(pts, color, Stroke::NONE));
+}
 
-    // Paint a card slot: filled with the card value, or an empty "+" placeholder
-    fn paint_card(painter: &egui::Painter, rect: Rect, card: Option<Card>, highlighted: bool) {
-        let rounding = CornerRadius::same(3);
-        let accent   = Color32::from_rgb(255, 200, 0);
-
-        if let Some(c) = card {
-            let bg = if highlighted { Color32::from_rgb(255, 250, 180) } else { CARD_FULL };
-            painter.rect_filled(rect, rounding, bg);
-            if highlighted {
-                painter.add(egui::Shape::rect_stroke(
-                    rect, rounding, Stroke::new(2.0, accent), StrokeKind::Inside,
-                ));
-            }
-            painter.text(rect.center(), egui::Align2::CENTER_CENTER,
-                c.label(), FontId::proportional(rect.height() * 0.33), c.suit.color());
-        } else {
-            let border = if highlighted { accent } else { Color32::from_gray(90) };
-            painter.rect_filled(rect, rounding, CARD_EMPTY);
+fn paint_card(painter: &egui::Painter, rect: Rect, card: Option<Card>, highlighted: bool) {
+    let rounding = CornerRadius::same(3);
+    let accent   = Color32::from_rgb(255, 200, 0);
+    if let Some(c) = card {
+        let bg = if highlighted { Color32::from_rgb(255, 250, 180) } else { CARD_FULL };
+        painter.rect_filled(rect, rounding, bg);
+        if highlighted {
             painter.add(egui::Shape::rect_stroke(
-                rect, rounding, Stroke::new(1.0, border), StrokeKind::Inside,
+                rect, rounding, Stroke::new(2.0, accent), StrokeKind::Inside,
             ));
-            painter.text(rect.center(), egui::Align2::CENTER_CENTER,
-                "+", FontId::proportional(rect.height() * 0.45), border);
         }
+        painter.text(rect.center(), egui::Align2::CENTER_CENTER,
+            c.label(), FontId::proportional(rect.height() * 0.30), c.suit.color());
+    } else {
+        let border = if highlighted { accent } else { Color32::from_gray(90) };
+        painter.rect_filled(rect, rounding, CARD_EMPTY);
+        painter.add(egui::Shape::rect_stroke(
+            rect, rounding, Stroke::new(1.0, border), StrokeKind::Inside,
+        ));
+        painter.text(rect.center(), egui::Align2::CENTER_CENTER,
+            "+", FontId::proportional(rect.height() * 0.42), border);
     }
 }
 
-// ── Table view ──────────────────────────────────────────────────────────────
+// ── Table view ───────────────────────────────────────────────────────────────
 
 impl PokerApp {
     fn show_table(&mut self, ui: &mut egui::Ui) {
-        let size = Vec2::new(ui.available_width(), 300.0);
-        let (resp, painter) = ui.allocate_painter(size, Sense::hover());
+        let avail_w = ui.available_width();
+        let (resp, painter) = ui.allocate_painter(Vec2::new(avail_w, PAINTER_H), Sense::hover());
         let r      = resp.rect;
-        let center = Pos2::new(r.center().x, r.center().y);
-        let (rx, ry) = (r.width() * 0.28, r.height() * 0.40);
+        let center = r.center();
 
-        Self::paint_ellipse(&painter, center, rx + 14.0, ry + 14.0, TABLE_BORDER);
-        Self::paint_ellipse(&painter, center, rx, ry, TABLE_FELT);
+        // Table rx scales with window width but is capped so players stay in the painter area
+        let table_rx  = (avail_w * 0.22).min(260.0).max(160.0);
+        let player_rx = table_rx + 14.0 + PLAYER_GAP; // just outside the border
+        let player_ry = TABLE_RY  + 14.0 + PLAYER_GAP;
+
+        // Draw table (border then felt)
+        paint_ellipse(&painter, center, table_rx + 14.0, TABLE_RY + 14.0, TABLE_BORDER);
+        paint_ellipse(&painter, center, table_rx, TABLE_RY, TABLE_FELT);
 
         // ── Community cards ────────────────────────────────────────────────
-        let cw    = rx * 0.14;
-        let ch    = cw * 1.55;
-        let gap   = cw * 0.18;
-        let total = 5.0 * cw + 4.0 * gap;
-        let cx0   = center.x - total / 2.0;
-        let cy    = center.y - ch / 2.0;
+        let comm_w = 5.0 * C_CARD_W + 4.0 * C_GAP;
+        let cx0    = center.x - comm_w / 2.0;
+        let cy     = center.y - C_CARD_H / 2.0;
 
-        painter.text(Pos2::new(center.x, cy - 12.0), egui::Align2::CENTER_CENTER,
-            "Community", FontId::proportional(11.0), Color32::from_gray(160));
+        painter.text(
+            Pos2::new(center.x, cy - 14.0),
+            egui::Align2::CENTER_CENTER,
+            "Community",
+            FontId::proportional(11.0),
+            Color32::from_gray(155),
+        );
 
         let mut clicked: Option<CardSlot> = None;
 
         for i in 0..5usize {
             let slot = match i { 0..=2 => CardSlot::Flop(i), 3 => CardSlot::Turn, _ => CardSlot::River };
             let rect = Rect::from_min_size(
-                Pos2::new(cx0 + i as f32 * (cw + gap), cy),
-                Vec2::new(cw, ch),
+                Pos2::new(cx0 + i as f32 * (C_CARD_W + C_GAP), cy),
+                Vec2::new(C_CARD_W, C_CARD_H),
             );
-            Self::paint_card(&painter, rect, self.get_card(slot), self.picking == Some(slot));
+            paint_card(&painter, rect, self.get_card(slot), self.picking == Some(slot));
             if ui.interact(rect, ui.id().with(("comm", i)), Sense::click()).clicked() {
                 clicked = Some(slot);
             }
         }
 
-        // ── Players around the table ───────────────────────────────────────
+        // ── Players evenly distributed around the oval ────────────────────
         let n = self.players.len();
         for idx in 0..n {
             let t  = std::f32::consts::FRAC_PI_2 + idx as f32 * std::f32::consts::TAU / n as f32;
-            let px = center.x + rx * 1.22 * t.cos();
-            let py = center.y + ry * 1.35 * t.sin();
+            let px = center.x + player_rx * t.cos();
+            let py = center.y + player_ry * t.sin();
 
-            // Dealer button (white circle with "D")
+            // Dealer button (small circle above-right of the player zone)
             if idx == self.dealer {
-                let dp = Pos2::new(px + 18.0, py - 18.0);
-                painter.circle_filled(dp, 9.0, Color32::WHITE);
+                let dp = Pos2::new(px + P_CARD_W + 8.0, py - P_CARD_H / 2.0 - 2.0);
+                painter.circle_filled(dp, 10.0, Color32::WHITE);
                 painter.text(dp, egui::Align2::CENTER_CENTER, "D",
                     FontId::proportional(10.0), Color32::BLACK);
             }
 
-            // Player label — click to assign dealer here
-            let label_pos  = Pos2::new(px, py - 22.0);
-            let label_rect = Rect::from_center_size(label_pos, Vec2::new(28.0, 16.0));
+            // Player label — click it to move the dealer button here
+            let label_pos = Pos2::new(px, py - P_CARD_H / 2.0 - 14.0);
             painter.text(label_pos, egui::Align2::CENTER_CENTER,
                 format!("P{}", idx + 1), FontId::proportional(13.0), Color32::WHITE);
-            if ui.interact(label_rect, ui.id().with(("set_dealer", idx)), Sense::click()).clicked() {
+
+            let label_rect = Rect::from_center_size(label_pos, Vec2::new(30.0, 16.0));
+            if ui.interact(label_rect, ui.id().with(("dealer", idx)), Sense::click()).clicked() {
                 self.dealer = idx;
             }
 
-            // 2 hole card slots
-            let pw = cw * 0.85;
-            let ph = pw * 1.5;
+            // 2 hole cards
             for c in 0..2usize {
-                let slot   = CardSlot::Player(idx, c);
-                let card   = self.players[idx].cards[c];
-                let cx     = px - pw - 1.0 + c as f32 * (pw + 2.0);
-                let crect  = Rect::from_min_size(Pos2::new(cx, py - ph / 2.0), Vec2::new(pw, ph));
-                Self::paint_card(&painter, crect, card, self.picking == Some(slot));
+                let slot  = CardSlot::Player(idx, c);
+                let card  = self.players[idx].cards[c];
+                let cx    = px - P_CARD_W - 2.0 + c as f32 * (P_CARD_W + 4.0);
+                let crect = Rect::from_min_size(
+                    Pos2::new(cx, py - P_CARD_H / 2.0),
+                    Vec2::new(P_CARD_W, P_CARD_H),
+                );
+                paint_card(&painter, crect, card, self.picking == Some(slot));
                 if ui.interact(crect, ui.id().with(("pcard", idx, c)), Sense::click()).clicked() {
                     clicked = Some(slot);
                 }
@@ -231,7 +253,7 @@ impl PokerApp {
     }
 }
 
-// ── Player panels ───────────────────────────────────────────────────────────
+// ── Player panels ─────────────────────────────────────────────────────────────
 
 impl PokerApp {
     fn show_player_panels(&mut self, ui: &mut egui::Ui) {
@@ -239,68 +261,68 @@ impl PokerApp {
         let mut set_dealer: Option<usize>    = None;
         let mut add_player = false;
 
-        ui.horizontal(|ui| {
-            let n = self.players.len();
-            for idx in 0..n {
-                let is_dealer = self.dealer == idx;
-                let cards     = self.players[idx].cards;
-                let picking   = self.picking;
+        egui::ScrollArea::horizontal()
+            .id_salt("panels_scroll")
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    let n = self.players.len();
+                    for idx in 0..n {
+                        let is_dealer = self.dealer == idx;
+                        let cards     = self.players[idx].cards;
+                        let picking   = self.picking;
 
-                ui.group(|ui| {
-                    ui.set_min_width(140.0);
-                    ui.vertical(|ui| {
-                        ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new(format!("P{}", idx + 1)).strong());
-                            if is_dealer {
-                                ui.label(egui::RichText::new("BTN").color(Color32::YELLOW).small());
-                            } else if ui.small_button("Set BTN").clicked() {
-                                set_dealer = Some(idx);
-                            }
+                        ui.group(|ui| {
+                            ui.set_min_width(140.0);
+                            ui.vertical(|ui| {
+                                ui.horizontal(|ui| {
+                                    ui.label(egui::RichText::new(format!("P{}", idx + 1)).strong());
+                                    if is_dealer {
+                                        ui.label(egui::RichText::new("BTN").color(Color32::YELLOW).small());
+                                    } else if ui.small_button("Set BTN").clicked() {
+                                        set_dealer = Some(idx);
+                                    }
+                                });
+
+                                ui.horizontal(|ui| {
+                                    for c in 0..2usize {
+                                        let slot      = CardSlot::Player(idx, c);
+                                        let is_active = picking == Some(slot);
+                                        let (label, text_color) = match cards[c] {
+                                            Some(card) => (
+                                                card.label(),
+                                                match card.suit {
+                                                    Suit::Hearts | Suit::Diamonds => Color32::from_rgb(220, 50, 50),
+                                                    _                             => Color32::from_rgb(15, 15, 15),
+                                                },
+                                            ),
+                                            None => ("?".to_string(), Color32::DARK_GRAY),
+                                        };
+
+                                        let bg = if is_active            { Color32::from_rgb(60, 55, 20) }
+                                                 else if cards[c].is_some() { Color32::WHITE }
+                                                 else                       { Color32::from_gray(45) };
+
+                                        let btn = egui::Button::new(
+                                            egui::RichText::new(&label).size(18.0).color(text_color)
+                                        ).min_size(Vec2::new(48.0, 48.0)).fill(bg);
+
+                                        if ui.add(btn).clicked() { clicked = Some(slot); }
+                                    }
+                                });
+                            });
                         });
+                    }
 
-                        ui.horizontal(|ui| {
-                            for c in 0..2usize {
-                                let slot      = CardSlot::Player(idx, c);
-                                let is_active = picking == Some(slot);
-                                let (label, text_color) = match cards[c] {
-                                    Some(card) => (
-                                        card.label(),
-                                        match card.suit {
-                                            Suit::Hearts | Suit::Diamonds => Color32::from_rgb(220, 50, 50),
-                                            _                             => Color32::from_rgb(15, 15, 15),
-                                        },
-                                    ),
-                                    None => ("?".to_string(), Color32::DARK_GRAY),
-                                };
-
-                                let bg = if is_active            { Color32::from_rgb(60, 55, 20) }
-                                         else if cards[c].is_some() { Color32::WHITE }
-                                         else                       { Color32::from_gray(45) };
-
-                                let btn = egui::Button::new(
-                                    egui::RichText::new(&label).size(18.0).color(text_color)
-                                )
-                                .min_size(Vec2::new(48.0, 48.0))
-                                .fill(bg);
-
-                                if ui.add(btn).clicked() {
-                                    clicked = Some(slot);
-                                }
-                            }
-                        });
-                    });
+                    if n < MAX_PLAYERS {
+                        if ui.button(egui::RichText::new("+").size(22.0))
+                            .on_hover_text("Ajouter un joueur")
+                            .clicked()
+                        {
+                            add_player = true;
+                        }
+                    }
                 });
-            }
-
-            if n < MAX_PLAYERS {
-                if ui.button(egui::RichText::new("+").size(22.0))
-                    .on_hover_text("Ajouter un joueur")
-                    .clicked()
-                {
-                    add_player = true;
-                }
-            }
-        });
+            });
 
         if let Some(slot) = clicked    { self.toggle_picking(slot); }
         if let Some(idx)  = set_dealer { self.dealer = idx; }
@@ -312,76 +334,92 @@ impl PokerApp {
     }
 }
 
-// ── Equity section ──────────────────────────────────────────────────────────
+// ── Equity section ─────────────────────────────────────────────────────────
 
 impl PokerApp {
     fn show_equity_section(&self, ui: &mut egui::Ui) {
         ui.separator();
-        ui.add_space(4.0);
-        ui.label(egui::RichText::new("Équités").strong().size(14.0));
         ui.add_space(6.0);
+        ui.label(egui::RichText::new("Équités").strong().size(14.0));
+        ui.add_space(8.0);
 
-        // (label, field accessor)
-        let hands: &[(&str, fn(&HandOdds) -> Option<f32>)] = &[
-            ("Paire",           |o| o.pair),
-            ("Double paire",    |o| o.two_pair),
-            ("Brelan",          |o| o.three_kind),
-            ("Quinte",          |o| o.straight),
-            ("Couleur",         |o| o.flush),
-            ("Full",            |o| o.full_house),
-            ("Carré",           |o| o.four_kind),
-            ("Quinte flush",    |o| o.str_flush),
-            ("Q. flush royale", |o| o.roy_flush),
+        let hand_rows: &[(&str, fn(&HandOdds) -> Option<f32>)] = &[
+            ("Paire",           |o: &HandOdds| o.pair),
+            ("Double paire",    |o: &HandOdds| o.two_pair),
+            ("Brelan",          |o: &HandOdds| o.three_kind),
+            ("Quinte",          |o: &HandOdds| o.straight),
+            ("Couleur",         |o: &HandOdds| o.flush),
+            ("Full",            |o: &HandOdds| o.full_house),
+            ("Carré",           |o: &HandOdds| o.four_kind),
+            ("Quinte flush",    |o: &HandOdds| o.str_flush),
+            ("Q. flush royale", |o: &HandOdds| o.roy_flush),
         ];
 
-        egui::ScrollArea::horizontal().id_salt("equity_scroll").show(ui, |ui| {
-            ui.horizontal_top(|ui| {
-                for (idx, odds) in self.odds.iter().enumerate() {
-                    ui.group(|ui| {
-                        ui.set_min_width(200.0);
-                        ui.vertical(|ui| {
-                            ui.label(egui::RichText::new(format!("Joueur {}", idx + 1)).strong());
-                            ui.add_space(4.0);
+        egui::ScrollArea::horizontal()
+            .id_salt("equity_scroll")
+            .show(ui, |ui| {
+                ui.horizontal_top(|ui| {
+                    for (idx, odds) in self.odds.iter().enumerate() {
+                        ui.group(|ui| {
+                            ui.set_min_width(250.0);
+                            ui.vertical(|ui| {
+                                ui.label(
+                                    egui::RichText::new(format!("Joueur {}", idx + 1)).strong()
+                                );
+                                ui.add_space(6.0);
 
-                            // Win probability — prominent green bar
-                            let win_val  = odds.win.unwrap_or(0.0);
-                            let win_text = fmt_pct("Victoire", odds.win);
-                            ui.add(egui::ProgressBar::new(win_val)
-                                .text(win_text)
-                                .fill(Color32::from_rgb(45, 170, 75))
-                                .desired_width(190.0));
+                                // Win probability — prominent green bar
+                                equity_row(ui, "Victoire", odds.win,
+                                    Color32::from_rgb(45, 170, 75), true);
 
-                            ui.add_space(6.0);
-                            ui.separator();
-                            ui.add_space(4.0);
+                                ui.add_space(6.0);
+                                ui.separator();
+                                ui.add_space(4.0);
 
-                            // Hand probabilities
-                            for (name, getter) in hands {
-                                let val  = getter(odds).unwrap_or(0.0);
-                                let text = fmt_pct(name, getter(odds));
-                                ui.add(egui::ProgressBar::new(val)
-                                    .text(text)
-                                    .fill(Color32::from_rgb(50, 90, 160))
-                                    .desired_width(190.0));
-                                ui.add_space(2.0);
-                            }
+                                // Hand probabilities
+                                for (name, getter) in hand_rows {
+                                    equity_row(ui, name, getter(odds),
+                                        Color32::from_rgb(55, 90, 170), false);
+                                    ui.add_space(2.0);
+                                }
+                            });
                         });
-                    });
-                    ui.add_space(4.0);
-                }
+                        ui.add_space(6.0);
+                    }
+                });
             });
-        });
     }
 }
 
-fn fmt_pct(label: &str, v: Option<f32>) -> String {
-    match v {
-        Some(p) => format!("{}: {:.1}%", label, p * 100.0),
-        None    => format!("{}: —", label),
-    }
+fn equity_row(ui: &mut egui::Ui, name: &str, val: Option<f32>, color: Color32, prominent: bool) {
+    let h        = if prominent { 22.0 } else { 16.0 };
+    let font_sz  = if prominent { 13.0 } else { 12.0 };
+    let pct      = val.unwrap_or(0.0);
+    let pct_text = match val {
+        Some(v) => format!("{:.1}%", v * 100.0),
+        None    => "—".to_string(),
+    };
+
+    ui.horizontal(|ui| {
+        // Fixed-width label
+        ui.add_sized(
+            [108.0, h],
+            egui::Label::new(egui::RichText::new(name).size(font_sz)),
+        );
+        // Fixed-width progress bar
+        ui.add_sized(
+            [110.0, h],
+            egui::ProgressBar::new(pct).fill(color),
+        );
+        // Percentage label
+        ui.add_sized(
+            [42.0, h],
+            egui::Label::new(egui::RichText::new(pct_text).size(font_sz)),
+        );
+    });
 }
 
-// ── Card picker popup ────────────────────────────────────────────────────────
+// ── Card picker popup ─────────────────────────────────────────────────────────
 
 impl PokerApp {
     fn show_card_picker(&mut self, ctx: &egui::Context) {
@@ -434,7 +472,9 @@ impl PokerApp {
                 ui.horizontal(|ui| {
                     if ui.button("Fermer").clicked() { close = true; }
                     if current.is_some() {
-                        if ui.button(egui::RichText::new("Supprimer").color(Color32::LIGHT_RED)).clicked() {
+                        if ui.button(
+                            egui::RichText::new("Supprimer").color(Color32::LIGHT_RED)
+                        ).clicked() {
                             remove = true;
                         }
                     }
@@ -453,17 +493,25 @@ impl PokerApp {
     }
 }
 
-// ── eframe::App ─────────────────────────────────────────────────────────────
+// ── eframe::App ───────────────────────────────────────────────────────────────
 
 impl eframe::App for PokerApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         ui.ctx().set_visuals(egui::Visuals::dark());
-        self.show_table(ui);
-        ui.add_space(16.0);
-        self.show_player_panels(ui);
 
-        ui.add_space(12.0);
-        self.show_equity_section(ui);
+        // Table (fixed height, painter-based)
+        self.show_table(ui);
+
+        // Scrollable area for panels + equity
+        egui::ScrollArea::vertical()
+            .id_salt("bottom_scroll")
+            .show(ui, |ui| {
+                ui.add_space(8.0);
+                self.show_player_panels(ui);
+                ui.add_space(8.0);
+                self.show_equity_section(ui);
+                ui.add_space(8.0);
+            });
 
         if self.picking.is_some() {
             let ctx = ui.ctx().clone();

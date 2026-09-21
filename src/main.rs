@@ -4,8 +4,9 @@ mod card;
 fn main() {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1300.0, 800.0])
-            .with_title("Poker Texas Hold'em"),
+            .with_inner_size([1400.0, 900.0])
+            .with_title("Poker Texas Hold'em")
+            .with_maximized(true),
         ..Default::default()
     };
     let _ = eframe::run_native(
