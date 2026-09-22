@@ -629,8 +629,19 @@ let n_needed: usize = board.iter().filter(|c| c.is_none()).count()
 | SC6 – 2j flop | 2 board + 0 mains = 2 | ~43 |
 
 #### Résultats mesurés
+Mesures sur **Setup A** (AMD Ryzen 5 5600H, Arch Linux, rustc 1.98.1).
 
-Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows 11, rustc 1.98.1), exécution directe `bench.exe`.
+| Scénario | zero_alloc iters/s | fisher iters/s | Speedup | n_needed |
+|---|---|---|---|---|
+| SC1 - 3j flop, 50k   | 216 749 | 226 828 | **×1.05** | 2 |
+| SC2 - 3j turn, 75k   | 350 527 | 354 275 | **×1.01** | 1 |
+| SC3 - 3j flop, 50k   | 209 046 | 216 740 | **×1.04** | 2 |
+| SC4 - 4j flop, 30k   | 136 508 | 135 447 | **×0.99** | 4 |
+| SC5 - 3j flop, 50k   | 202 563 | 213 991 | **×1.06** | 2 |
+| SC6 - 2j flop, 500k  | 338 389 | 372 284 | **×1.10** | 2 |
+
+
+Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows 11, rustc 1.98.1).
 
 | Scénario | zero_alloc iters/s | fisher iters/s | Speedup | n_needed |
 |---|---|---|---|---|
@@ -710,8 +721,17 @@ La fonction `best7` (21 combos → `eval5`) est remplacée par `eval7` (1 passe 
 Le cnt array trié par `(freq desc, rank desc)` garantit que `cnt[0]` contient toujours le groupe dominant, ce qui rend la lecture de la main en O(1) par branche — identique à `zero_alloc::eval5` mais sur 7 cartes directement.
 
 #### Résultats mesurés
+Mesures sur **Setup A** (AMD Ryzen 5 5600H, Arch Linux, rustc 1.98.1).
+| Scénario | zero_alloc iters/s | eval7 iters/s | Speedup vs zero_alloc |
+|---|---|---|---|
+| SC1 - 3j flop, 50k   | 216 749 | 3 857 906 | **×17.80** |
+| SC2 - 3j turn, 75k   | 350 527 | 4 339 600 | **×12.38** |
+| SC3 - 3j flop, 50k   | 209 046 | 3 761 322 | **×17.99** |
+| SC4 - 4j flop, 30k   | 136 508 | 2 250 772 | **×16.49** |
+| SC5 - 3j flop, 50k   | 202 563 | 3 438 947 | **×16.98** |
+| SC6 - 2j flop, 500k  | 338 389 | 4 590 567 | **×13.57** |
 
-Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows 11, rustc 1.98.1), exécution directe `bench.exe`.
+Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows 11, rustc 1.98.1).
 
 | Scénario | zero_alloc iters/s | eval7 iters/s | Speedup vs zero_alloc |
 |---|---|---|---|
