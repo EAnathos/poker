@@ -31,8 +31,8 @@ _mkdir-results:
 
 # ── Benchmarks ────────────────────────────────────────────────────────────────
 
-# Benchmark d'un scénario — just bench sc6 [naive|fast]
-# Sans évaluateur : compare les deux. Avec : un seul.
+# Benchmark d'un scénario — just bench sc1 [naive|fast]
+# Sans évaluateur : compare naive vs fast. Avec : un seul.
 # SC6 (500k iters) : warmup 3, runs 10 — autres : warmup 10, runs 100
 [unix]
 bench SC EVAL="": build _mkdir-results
@@ -40,33 +40,26 @@ bench SC EVAL="": build _mkdir-results
     set -e
     if [ "{{SC}}" = "sc6" ]; then warmup=3; runs=10; else warmup=10; runs=100; fi
     if [ -z "{{EVAL}}" ]; then
-        hyperfine \
-          --warmup $warmup --runs $runs --shell=none \
-          --command-name "naive {{SC}}" \
-          --command-name "fast  {{SC}}" \
-          --export-json {{RESULTS_DIR}}/{{SC}}.json \
-          --export-markdown {{RESULTS_DIR}}/{{SC}}.md \
-          '{{EXE}} {{SC}} naive' \
-          '{{EXE}} {{SC}} fast'
+      hyperfine \
+        --warmup $warmup --runs $runs --shell=none \
+        --command-name "naive {{SC}}" \
+        --command-name "fast  {{SC}}" \
+        --export-json {{RESULTS_DIR}}/{{SC}}.json \
+        --export-markdown {{RESULTS_DIR}}/{{SC}}.md \
+        '{{EXE}} {{SC}} naive' \
+        '{{EXE}} {{SC}} fast'
     else
-        hyperfine \
-          --warmup $warmup --runs $runs --shell=none \
-          --command-name "{{EVAL}} {{SC}}" \
-          --export-json {{RESULTS_DIR}}/{{SC}}_{{EVAL}}.json \
-          --export-markdown {{RESULTS_DIR}}/{{SC}}_{{EVAL}}.md \
-          '{{EXE}} {{SC}} {{EVAL}}'
+      hyperfine \
+        --warmup $warmup --runs $runs --shell=none \
+        --command-name "{{EVAL}} {{SC}}" \
+        --export-json {{RESULTS_DIR}}/{{SC}}_{{EVAL}}.json \
+        --export-markdown {{RESULTS_DIR}}/{{SC}}_{{EVAL}}.md \
+        '{{EXE}} {{SC}} {{EVAL}}'
     fi
 
 [windows]
 bench SC EVAL="": build _mkdir-results
-    #!/usr/bin/env pwsh
-    $warmup = if ("{{SC}}" -eq "sc6") { 3 } else { 10 }
-    $runs   = if ("{{SC}}" -eq "sc6") { 10 } else { 100 }
-    if ("{{EVAL}}" -eq "") {
-        hyperfine --warmup $warmup --runs $runs --shell=none --command-name "naive {{SC}}" --command-name "fast {{SC}}" --export-json "{{RESULTS_DIR}}/{{SC}}.json" --export-markdown "{{RESULTS_DIR}}/{{SC}}.md" "{{EXE}} {{SC}} naive" "{{EXE}} {{SC}} fast"
-    } else {
-        hyperfine --warmup $warmup --runs $runs --shell=none --command-name "{{EVAL}} {{SC}}" --export-json "{{RESULTS_DIR}}/{{SC}}_{{EVAL}}.json" --export-markdown "{{RESULTS_DIR}}/{{SC}}_{{EVAL}}.md" "{{EXE}} {{SC}} {{EVAL}}"
-    }
+    hyperfine --warmup {{ if SC == "sc6" { "3" } else { "10" } }} --runs {{ if SC == "sc6" { "10" } else { "100" } }} --shell=none {{ if EVAL == "" { '--command-name "naive ' + SC + '" --command-name "fast ' + SC + '" "' + EXE + ' ' + SC + ' naive" "' + EXE + ' ' + SC + ' fast" --export-json "' + RESULTS_DIR + '/' + SC + '.json" --export-markdown "' + RESULTS_DIR + '/' + SC + '.md"' } else { '--command-name "' + EVAL + ' ' + SC + '" "' + EXE + ' ' + SC + ' ' + EVAL + '" --export-json "' + RESULTS_DIR + '/' + SC + '_' + EVAL + '.json" --export-markdown "' + RESULTS_DIR + '/' + SC + '_' + EVAL + '.md"' } }}
 
 # Compare naive vs fast sur l'ensemble SC1–SC6
 bench-all: build _mkdir-results
