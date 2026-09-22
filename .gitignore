@@ -13,4 +13,4 @@ debug/
 
 # Profiling
 profile.json.gz
-results_baseline.*
+results_*.*
