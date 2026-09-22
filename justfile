@@ -1,7 +1,13 @@
 # Prérequis : cargo binstall (https://github.com/cargo-bins/cargo-binstall)
 # Installation : cargo install cargo-binstall
 
+# ── Shell Windows (Linux garde sh par défaut) ─────────────────────────────────
+set windows-shell := ["powershell.exe", "-NoLogo", "-NonInteractive", "-Command"]
+
 RESULTS_DIR := "results"
+EXE         := if os() == "windows" { "target/release/bench.exe" } else { "target/release/bench" }
+
+# ── Outillage ─────────────────────────────────────────────────────────────────
 
 install-tools:
     cargo binstall hyperfine samply --no-confirm
@@ -15,11 +21,19 @@ format:
 lint:
     cargo clippy -- -D warnings
 
+[unix]
 _mkdir-results:
     mkdir -p {{RESULTS_DIR}}
 
+[windows]
+_mkdir-results:
+    New-Item -ItemType Directory -Force -Path {{RESULTS_DIR}} | Out-Null
+
+# ── Benchmarks ────────────────────────────────────────────────────────────────
+
 # Compare naive vs fast sur un scénario : just bench sc6
 # SC6 (500k iters) : warmup 3, runs 10 — autres : warmup 10, runs 100
+[unix]
 bench SC: build _mkdir-results
     #!/usr/bin/env bash
     set -e
@@ -30,8 +44,12 @@ bench SC: build _mkdir-results
       --command-name "fast  {{SC}}" \
       --export-json {{RESULTS_DIR}}/{{SC}}.json \
       --export-markdown {{RESULTS_DIR}}/{{SC}}.md \
-      './target/release/bench {{SC}} naive' \
-      './target/release/bench {{SC}} fast'
+      '{{EXE}} {{SC}} naive' \
+      '{{EXE}} {{SC}} fast'
+
+[windows]
+bench SC: build _mkdir-results
+    hyperfine --warmup {{ if SC == "sc6" { "3" } else { "10" } }} --runs {{ if SC == "sc6" { "10" } else { "100" } }} --shell=none --command-name "naive {{SC}}" --command-name "fast {{SC}}" --export-json "{{RESULTS_DIR}}/{{SC}}.json" --export-markdown "{{RESULTS_DIR}}/{{SC}}.md" "{{EXE}} {{SC}} naive" "{{EXE}} {{SC}} fast"
 
 # Compare naive vs fast sur l'ensemble SC1–SC6
 bench-all: build _mkdir-results
@@ -41,14 +59,17 @@ bench-all: build _mkdir-results
       --command-name "fast" \
       --export-json {{RESULTS_DIR}}/all.json \
       --export-markdown {{RESULTS_DIR}}/all.md \
-      './target/release/bench naive' \
-      './target/release/bench fast'
+      '{{EXE}} naive' \
+      '{{EXE}} fast'
 
 # Flamegraph interactif via Firefox Profiler — just profile [sc6] [fast|naive]
 profile ARGS="sc6 fast": build
-    samply record ./target/release/bench {{ARGS}}
+    samply record {{EXE}} {{ARGS}}
+
+# ── Métriques ─────────────────────────────────────────────────────────────────
 
 # Extraction des métriques depuis un fichier JSON (usage : just stats results/sc6.json)
+[unix]
 stats FILE:
     #!/usr/bin/env python3
     import json, statistics as s
@@ -60,3 +81,7 @@ stats FILE:
         print("  Médiane   : %.1f ms" % (s.median(t)*1000))
         print("  Écart-type: %.1f ms" % (s.stdev(t)*1000))
         print("  Min/Max   : %.1f / %.1f ms" % (min(t)*1000, max(t)*1000))
+
+[windows]
+stats FILE:
+    python -c "import json,statistics as s; data=json.load(open('{{FILE}}'))['results']; [print('['+r['command']+']\n  Moyenne   : %.1f ms\n  Mediane   : %.1f ms\n  Ecart-type: %.1f ms\n  Min/Max   : %.1f / %.1f ms' % (s.mean(r['times'])*1000,s.median(r['times'])*1000,s.stdev(r['times'])*1000,min(r['times'])*1000,max(r['times'])*1000)) for r in data]"
