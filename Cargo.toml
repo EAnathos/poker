@@ -8,6 +8,5 @@ eframe = "0.36.2"
 egui = "0.36.2"
 
 [profile.release]
-debug = 2
-split-debuginfo = "off"
-strip = "none"
+debug = 1        # line tables seulement — suffit pour samply
+strip = "none"   # garde les symboles — obligatoire
