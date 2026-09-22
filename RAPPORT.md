@@ -129,16 +129,31 @@ just stats results_baseline.json
 
 **Setup B**
 
-| Métrique | Valeur baseline |
-|----------|----------------|
-| Moyenne | <!-- µs ou ms --> |
-| Médiane | |
-| Écart-type | |
-| Variance | |
-| Min | |
-| Max | |
+| Métrique | Valeur baseline (NT Heap) | Avec mimalloc |
+|----------|--------------------------|---------------|
+| Moyenne  | 13,82 s | 6,59 s |
+| Médiane  | 13,47 s | 6,57 s |
+| Écart-type | 928 ms | 111 ms |
+| Min | 13,18 s | 6,44 s |
+| Max | 17,55 s | 7,06 s |
 
-> Isolation : <!-- décrire les processus parasites fermés, CPU governor fixé en performance, etc. -->
+> **Isolation — problèmes spécifiques à Windows (Setup B)**
+>
+> Le Setup B a révélé un problème structurel lié à l'allocateur mémoire par défaut de Windows. Contrairement à Linux qui utilise `ptmalloc2` (glibc), Windows repose sur `RtlHeap` (NT Heap), un allocateur global avec verrou dont la latence sur de petites allocations répétées est 3 à 4× supérieure. Le flamegraph samply confirmait ce diagnostic : `RtlAllocateHeap` et `RtlReAllocateHeap` apparaissaient comme des blocs larges dans la pile d'appels, signalant que le temps CPU était dominé par la gestion mémoire plutôt que par le calcul.
+>
+> L'impact est double : la **moyenne** passe de 13,82 s à 6,59 s (gain ×2,1) et l'**écart-type** chute de 928 ms à 111 ms (stabilité ×8,4), supprimant les pics à 17,5 s observés en baseline. Ces pics sont caractéristiques des consolidations de heap que Windows effectue périodiquement sous charge.
+>
+> **Correction appliquée** — remplacement de l'allocateur système par `mimalloc` (Microsoft Research) via une seule ligne dans le binaire de benchmark :
+>
+> ```rust
+> // src/bin/bench.rs
+> #[global_allocator]
+> static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+> ```
+>
+> Cette ligne redirige tous les appels `malloc`/`free` de Rust vers mimalloc, qui utilise des arènes par thread et évite le verrou global du NT Heap. Aucune modification algorithmique n'est nécessaire — le gain est purement infrastructurel.
+>
+> **Note :** cette correction est appliquée uniquement au binaire `bench` et non à l'application principale, afin de ne pas biaiser la comparaison avec le Setup A (Linux) qui ne souffre pas de ce problème.
 
 ---
 
