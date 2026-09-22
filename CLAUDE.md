@@ -22,8 +22,18 @@ Chaque proposition d'optimisation doit être formulée sous la forme :
 
 ```
 Hypothèse : <impact attendu sur le matériel — ex. "réduire les cache misses L2 en densifiant la structure">
-Vérification : <commande exacte de profiling — ex. "cargo flamegraph --bin poker -- bench" ou "perf stat -e cache-misses ./target/release/poker">
+Vérification : <commande exacte de profiling — ex. "just bench-sc1" ou "perf stat -e cache-misses ./target/release/bench sc1">
 ```
+
+Commandes de référence du projet :
+
+| Objectif | Commande |
+|----------|----------|
+| Mesure statistique (scénario isolé) | `just bench-sc1` … `just bench-sc6` |
+| Comparatif SC1–SC5 | `just bench-all` |
+| Flamegraph interactif (samply → Firefox Profiler) | `just profile` |
+| Compteurs matériels bas niveau | `perf stat -e cache-misses,cache-references,instructions,cycles ./target/release/bench sc1` |
+| Compilation release | `just build` |
 
 Aucune optimisation n'est acceptée sans la commande de vérification associée.
 
