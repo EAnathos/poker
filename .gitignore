@@ -13,4 +13,6 @@ debug/
 
 # Profiling
 profile.json.gz
-results_*.*
+
+# Résultats de benchmark (générés par just bench-*)
+/results/

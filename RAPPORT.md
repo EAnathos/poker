@@ -100,7 +100,8 @@ just bench-all
 
 ```powershell
 # Windows / Setup B (PowerShell) — commandes directes
-hyperfine --warmup 10 --runs 100 --shell=none --export-json results_baseline.json --export-markdown results_baseline.md '.\target\release\bench.exe'
+New-Item -ItemType Directory -Force -Path results | Out-Null
+hyperfine --warmup 10 --runs 100 --shell=none --export-json results/baseline.json --export-markdown results/baseline.md '.\target\release\bench.exe'
 ```
 
 **Justification des paramètres :**
@@ -111,7 +112,7 @@ hyperfine --warmup 10 --runs 100 --shell=none --export-json results_baseline.jso
 #### Extraction des métriques complètes depuis le JSON
 
 ```bash
-just stats results_baseline.json
+just stats results/baseline.json
 ```
 
 **Setup A**
@@ -155,7 +156,7 @@ just stats results_baseline.json
 | `just bench-all` | Comparatif SC1–SC5 dans un seul appel hyperfine |
 | `just bench-baseline` | Protocole §1.2 complet sur le binaire sans argument |
 | `just profile` | Flamegraph samply → Firefox Profiler |
-| `just stats results_sc1.json` | Extrait moyenne/médiane/σ/min/max du JSON |
+| `just stats results/sc1.json` | Extrait moyenne/médiane/σ/min/max du JSON |
 
 Chaque recette `bench-scN` passe l'argument `scN` au binaire, qui exécute uniquement le scénario correspondant — évite le bruit des autres scénarios dans la mesure Hyperfine.
 
