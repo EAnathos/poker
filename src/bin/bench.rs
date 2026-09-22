@@ -278,6 +278,50 @@ fn main() {
                 iterations: 30_000,
             },
         ),
+        (
+            "AhKh vs QsQd | flop Jh-Th-2c | 500k iters",
+            Condition {
+                players: vec![
+                    [
+                        Some(Card {
+                            rank: Rank::Ace,
+                            suit: Suit::Hearts,
+                        }),
+                        Some(Card {
+                            rank: Rank::King,
+                            suit: Suit::Hearts,
+                        }),
+                    ],
+                    [
+                        Some(Card {
+                            rank: Rank::Queen,
+                            suit: Suit::Spades,
+                        }),
+                        Some(Card {
+                            rank: Rank::Queen,
+                            suit: Suit::Diamonds,
+                        }),
+                    ],
+                ],
+                board: [
+                    Some(Card {
+                        rank: Rank::Jack,
+                        suit: Suit::Hearts,
+                    }),
+                    Some(Card {
+                        rank: Rank::Ten,
+                        suit: Suit::Hearts,
+                    }),
+                    Some(Card {
+                        rank: Rank::Two,
+                        suit: Suit::Clubs,
+                    }),
+                    None,
+                    None,
+                ],
+                iterations: 500_000,
+            },
+        ),
     ];
 
     let evaluator = NaiveEvaluator;
