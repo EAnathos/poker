@@ -16,7 +16,7 @@ Deux objectifs distincts gouvernent le projet :
 
 ### 1.2 Architecture
 
-Deux évaluateurs coexistent dans `src/eval/` :
+Trois évaluateurs coexistent dans `src/eval/` :
 
 | Évaluateur | Fichier | Approche | Rôle |
 |---|---|---|---|
