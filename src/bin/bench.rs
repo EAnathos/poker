@@ -1,9 +1,17 @@
+use mimalloc::MiMalloc;
 use poker::card::{Card, Rank, Suit};
 use poker::eval::{
-    Condition, Evaluator, naive::NaiveEvaluator, sort_free::SortFreeEvaluator,
+    Condition, Evaluator,
+    eval7::Eval7Evaluator,
+    fisher::FisherEvaluator,
+    naive::NaiveEvaluator,
+    sort_free::SortFreeEvaluator,
     zero_alloc::ZeroAllocEvaluator,
 };
 use std::time::Instant;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 fn main() {
     let scenarios: &[(&str, Condition)] = &[
@@ -359,13 +367,24 @@ fn main() {
                     evals.push("sort_free");
                 }
             }
+            "fisher" => {
+                if !evals.contains(&"fisher") {
+                    evals.push("fisher");
+                }
+            }
+            "eval7" => {
+                if !evals.contains(&"eval7") {
+                    evals.push("eval7");
+                }
+            }
             other => eprintln!("argument inconnu ignoré : {other}"),
         }
     }
     if evals.is_empty() {
         evals.push("naive");
         evals.push("zero_alloc");
-        evals.push("sort_free");
+        evals.push("fisher");
+        evals.push("eval7");
     }
 
     let to_run: Vec<usize> = match sc_filter {
@@ -382,8 +401,10 @@ fn main() {
         for &eval_name in &evals {
             let ev: Box<dyn Evaluator> = match eval_name {
                 "zero_alloc" => Box::new(ZeroAllocEvaluator),
-                "sort_free" => Box::new(SortFreeEvaluator),
-                _ => Box::new(NaiveEvaluator),
+                "sort_free"  => Box::new(SortFreeEvaluator),
+                "fisher"     => Box::new(FisherEvaluator),
+                "eval7"      => Box::new(Eval7Evaluator),
+                _            => Box::new(NaiveEvaluator),
             };
             let t = Instant::now();
             let results = ev.run(cond);

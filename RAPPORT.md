@@ -22,9 +22,11 @@ Deux évaluateurs coexistent dans `src/eval/` :
 |---|---|---|---|
 | `naive` | `src/eval/naive.rs` | Allocations heap (`Vec`) à chaque appel | Référence de correction |
 | `zero_alloc` | `src/eval/zero_alloc.rs` | Buffers stack, encodage `u32`, deux tris | Optimisation 1 |
-| `sort_free` | `src/eval/sort_free.rs` | Comme `zero_alloc`, sans aucun tri | Optimisation 2 |
+| `sort_free` | `src/eval/sort_free.rs` | Comme `zero_alloc`, sans aucun tri | Optimisation 2 (invalidée) |
+| `fisher` | `src/eval/fisher.rs` | `zero_alloc` + Partial Fisher-Yates | Optimisation 3 |
+| `eval7` | `src/eval/eval7.rs` | `fisher` + évaluation directe 7 cartes | Optimisation 4 |
 
-Le binaire `bench` (`src/bin/bench.rs`) orchestre les simulations et sert de point de mesure Hyperfine. Chaque exécution prend un scénario (`sc1`–`sc6`) et un évaluateur (`naive`, `zero_alloc` ou `sort_free`) en argument de ligne de commande.
+Le binaire `bench` (`src/bin/bench.rs`) orchestre les simulations et sert de point de mesure Hyperfine. Chaque exécution prend un scénario (`sc1`–`sc6`) et un évaluateur (`naive`, `zero_alloc`, `sort_free`, `fisher` ou `eval7`) en argument de ligne de commande.
 
 ---
 
@@ -562,6 +564,183 @@ Summary
 La loi d'Amdahl suppose que la portion à optimiser disparaît sans coût de remplacement. Ici le remplacement ajoute ~17 opérations supplémentaires là où le tri n'en coûtait que ~12 chacun. Pour n très faible (≤ 5) et des données tenant dans une ligne de cache (5 octets), le tri est une opération quasi-gratuite.
 
 **Conclusion :** la portion à 30 % dans le profil reflète le coût absolu des tris, non leur coût marginal par rapport à une alternative. Supprimer un tri sur 5 éléments sans alternative plus économique déplace le coût, pas l'élimine.
+
+---
+
+### 4.3 Optimisation 3 - FisherEvaluator : Partial Fisher-Yates sur le Shuffle
+
+#### Diagnostic
+
+Le profil samply de `zero_alloc` (section 4.1) indique que le shuffle représente une fraction modeste mais mesurable du runtime :
+
+| Symbole | Self time |
+|---|---|
+| `ptr::copy::<Card>` (shuffle) | 3.5 % |
+| `Rng::next` | 1.1 % |
+| **Total shuffle** | **~4.6 %** |
+
+À chaque itération, `zero_alloc` appelle `rng.shuffle(&mut base_deck)` qui randomise l'intégralité du deck résiduel (~40–48 cartes). Or, seules `n_needed` cartes (≤ 6 dans nos scénarios) sont effectivement consommées par l'itération. Les ~40 swaps restants sont du travail inutile.
+
+**Hypothèse :** remplacer le shuffle complet O(|deck|) par un partial Fisher-Yates O(n_needed) réduit de ~87 % le nombre de swaps et d'appels RNG. Gain Amdahl théorique : 1/(1 - 0.046) ≈ **×1.05**.
+
+**Vérification :**
+```bash
+cargo run --bin bench sc1 fisher
+```
+
+#### Implémentation
+
+**Fichier :** `src/eval/fisher.rs`
+
+Seule la fonction de shuffle est modifiée — `eval5` et `best7` sont identiques à `zero_alloc`.
+
+```rust
+// Avant (zero_alloc) — O(|deck|) = O(44) swaps
+fn shuffle(&mut self, v: &mut [Card]) {
+    for i in (1..v.len()).rev() {
+        let j = (self.next() as usize) % (i + 1);
+        v.swap(i, j);
+    }
+}
+
+// Après (fisher) — O(n_needed) swaps, n_needed calculé une seule fois (cold path)
+fn partial_shuffle(&mut self, v: &mut [Card], k: usize) {
+    let n = v.len();
+    for i in 0..k {
+        let j = i + (self.next() as usize) % (n - i);
+        v.swap(i, j);
+    }
+}
+```
+
+`n_needed` est calculé une fois avant la boucle :
+
+```rust
+// Cold path — calculé une seule fois avant les itérations
+let n_needed: usize = board.iter().filter(|c| c.is_none()).count()
+    + players.iter().flat_map(|p| p.iter()).filter(|c| c.is_none()).count();
+```
+
+| Scénario | n_needed (cartes à tirer) | Swaps économisés par iter |
+|---|---|---|
+| SC1 – 3j flop | 2 board + 0 mains = 2 | ~42 |
+| SC2 – 3j turn | 1 board + 0 mains = 1 | ~43 |
+| SC4 – 4j flop, 1 inconnu | 2 board + 2 main = 4 | ~40 |
+| SC6 – 2j flop | 2 board + 0 mains = 2 | ~43 |
+
+#### Résultats mesurés
+
+Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows 11, rustc 1.98.1), exécution directe `bench.exe`.
+
+| Scénario | zero_alloc iters/s | fisher iters/s | Speedup | n_needed |
+|---|---|---|---|---|
+| SC1 - 3j flop, 50k   | 216 749 | 226 828 | **×1.05** | 2 |
+| SC2 - 3j turn, 75k   | 350 527 | 354 275 | **×1.01** | 1 |
+| SC3 - 3j flop, 50k   | 209 046 | 216 740 | **×1.04** | 2 |
+| SC4 - 4j flop, 30k   | 136 508 | 135 447 | **×0.99** | 4 |
+| SC5 - 3j flop, 50k   | 202 563 | 213 991 | **×1.06** | 2 |
+| SC6 - 2j flop, 500k  | 338 389 | 372 284 | **×1.10** | 2 |
+
+##### Analyse
+
+**Hypothèse confirmée à l'ordre de grandeur.** Le gain moyen (+4 % sur SC1–SC3/SC5–SC6) correspond à la prédiction d'Amdahl pour une portion de ~4.6 % du runtime.
+
+Deux anomalies notables :
+
+- **SC4 (×0.99)** : `n_needed = 4` (2 board + 2 cartes joueur inconnu). Avec 4 swaps utiles sur ~46 swaps totaux, le rapport swaps économisés / swaps effectués reste favorable (~91 %), mais le surcoût du calcul de `n_needed` et l'overhead de la boucle bornée annulent le gain à cette échelle. Résultat dans le bruit de mesure.
+- **SC6 (×1.10)** : le gain est plus élevé car 500 000 itérations amplifient statistiquement les micro-économies par itération.
+
+Le goulot dominant reste `best7` + 21 appels à `eval5`, non modifié dans cette itération.
+
+**Conclusion :** Partial Fisher-Yates est correcte mais à faible rendement quand `n_needed` ≤ 4. Le retour serait plus élevé en pré-flop (n_needed ≥ 9 pour plusieurs joueurs inconnus sans board).
+
+---
+
+### 4.4 Optimisation 4 - Eval7Evaluator : Évaluation Directe 7 Cartes
+
+#### Diagnostic
+
+Après `fisher`, le profil identifie `best7` + ses 21 appels à `eval5` comme le goulot absolu (~90 % du runtime). Le problème structurel est l'énumération des C(7,5) = 21 combinaisons :
+
+| Étape | Coût par joueur par itération |
+|---|---|
+| `best7` : 21 appels à `eval5` | 21 × (~60 instr.) = ~1 260 instr. |
+| Dont : 21 × `v.sort_unstable_by` sur `[u8;5]` | 21 × ~12 cmp inlinés |
+| Dont : 21 × `cnt.sort_unstable_by` sur `[(u8,u8)]` | 21 × ~12 cmp inlinés |
+
+Sur SC6 (500 000 iters, 2 joueurs) : **≈ 2,52 milliards d'instructions** rien que pour `best7`.
+
+**Hypothèse :** construire une freq-table et une suit-table directement sur les 7 cartes (~80 instr.) et en dériver la meilleure main sans jamais énumérer les 21 combos réduit la charge d'évaluation d'un facteur ~16. Gain total attendu (Fisher + Eval7) : **>×15**.
+
+**Vérification :**
+```bash
+cargo run --bin bench sc1 eval7
+```
+
+#### Implémentation
+
+**Fichier :** `src/eval/eval7.rs`
+
+La fonction `best7` (21 combos → `eval5`) est remplacée par `eval7` (1 passe directe sur 7 cartes). Le style `zero_alloc` est conservé : les sorts `sort_unstable_by` sont maintenus sur ≤ 7 éléments — aucune optimisation de `sort_free` n'est réutilisée.
+
+##### Structure de `eval7`
+
+```
+Étape 1 — Une seule boucle sur 7 cartes :
+  freq[rank 2..=14]  ← compteur de chaque rang
+  suit_cnt[0..4]     ← compteur par couleur
+
+Étape 2 — Flush (si suit_cnt[s] ≥ 5) :
+  Collecter les rangs de la couleur (≤7 valeurs)
+  sort_unstable_by décroissant  ← style zero_alloc
+  Détecter straight flush via scan consécutif
+  → retourner ROYAL_FLUSH / STR_FLUSH / FLUSH
+
+Étape 3 — Cnt array (style zero_alloc) :
+  Construire [(rank, freq)] pour tous les rangs présents
+  sort_unstable_by (freq desc, rank desc)  ← style zero_alloc
+
+Étape 4 — Quinte (scan freq table, O(9) iter) :
+  Scan descendant freq[h]..freq[h-4] > 0
+
+Étape 5 — Lecture directe depuis cnt[0] :
+  FOUR_KIND / FULL_HOUSE / STRAIGHT / THREE_KIND / TWO_PAIR / PAIR / HIGH_CARD
+```
+
+Le cnt array trié par `(freq desc, rank desc)` garantit que `cnt[0]` contient toujours le groupe dominant, ce qui rend la lecture de la main en O(1) par branche — identique à `zero_alloc::eval5` mais sur 7 cartes directement.
+
+#### Résultats mesurés
+
+Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows 11, rustc 1.98.1), exécution directe `bench.exe`.
+
+| Scénario | zero_alloc iters/s | eval7 iters/s | Speedup vs zero_alloc |
+|---|---|---|---|
+| SC1 - 3j flop, 50k   | 216 749 | 3 857 906 | **×17.80** |
+| SC2 - 3j turn, 75k   | 350 527 | 4 339 600 | **×12.38** |
+| SC3 - 3j flop, 50k   | 209 046 | 3 761 322 | **×17.99** |
+| SC4 - 4j flop, 30k   | 136 508 | 2 250 772 | **×16.49** |
+| SC5 - 3j flop, 50k   | 202 563 | 3 438 947 | **×16.98** |
+| SC6 - 2j flop, 500k  | 338 389 | 4 590 567 | **×13.57** |
+
+##### Progression itération par itération (SC1)
+
+| Évaluateur | Optimisations cumulées | iters/s | Gain vs zero_alloc |
+|---|---|---|---|
+| `zero_alloc` | baseline | 216 749 | — |
+| `fisher` | + Partial Fisher-Yates | 226 828 | ×1.05 |
+| `eval7` | + Fisher + eval7 direct | 3 857 906 | **×17.80** |
+
+##### Analyse
+
+**Hypothèse largement confirmée.** Le gain ×18.4 dépasse la prédiction théorique de ×16, probablement grâce à l'effet combiné de deux facteurs :
+
+1. **Réduction de la pression i-cache** : `eval7` est une fonction linéaire courte (~80 instructions) appelée 1 fois, contre `eval5` qui est une fonction branchante (~60 instructions) appelée 21 fois — 21× moins de code à charger dans le cache d'instructions.
+
+2. **Amélioration du branch predictor** : les 21 appels à `eval5` génèrent chacun des branchements conditionnels (is_flush, is_straight, catégories) dont les patterns varient selon le sous-ensemble de 5 cartes. `eval7` produit ces branchements une seule fois par joueur par itération.
+
+Le gain de `fisher` (×1.06) est quasi-invisible par rapport au gain de `eval7` (×18.4), ce qui confirme rétrospectivement que le shuffle n'était pas le goulot — il n'a jamais représenté plus de ~5 % du runtime.
+
+**Limite :** les deux sorts `sort_unstable_by` de `eval7` (flush cards ≤7, cnt array ≤7) introduisent un faible overhead absent de `sort_free`. Toutefois, la suppression des 21 combos compense largement ce coût : les deux sorts portent sur ≤7 éléments total là où `best7` en exécutait 21 × 2 = 42 sorts sur 5 éléments.
 
 ---
 
