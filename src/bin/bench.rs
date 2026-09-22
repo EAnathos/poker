@@ -1,5 +1,5 @@
 use poker::card::{Card, Rank, Suit};
-use poker::eval::{Condition, Evaluator, naive::NaiveEvaluator};
+use poker::eval::{Condition, Evaluator, fast::FastEvaluator, naive::NaiveEvaluator};
 use std::time::Instant;
 
 fn main() {
@@ -324,29 +324,85 @@ fn main() {
         ),
     ];
 
-    let to_run: &[usize] = match std::env::args().nth(1).as_deref() {
-        Some("sc1") => &[0],
-        Some("sc2") => &[1],
-        Some("sc3") => &[2],
-        Some("sc4") => &[3],
-        Some("sc5") => &[4],
-        Some("sc6") => &[5],
-        _ => &[0, 1, 2, 3, 4, 5],
+    // ── Parsing des arguments ─────────────────────────────────────────────────
+    // Usage : bench [sc1..sc6] [naive] [fast]  (ordre libre, tout optionnel)
+    // Exemples :
+    //   bench sc6 naive fast   → compare les deux sur sc6
+    //   bench fast             → tous les scénarios, fast uniquement
+    //   bench                  → tous les scénarios, naive uniquement
+    let mut sc_filter: Option<usize> = None;
+    let mut evals: Vec<&'static str> = Vec::new();
+
+    for arg in std::env::args().skip(1) {
+        match arg.as_str() {
+            "sc1" => sc_filter = Some(0),
+            "sc2" => sc_filter = Some(1),
+            "sc3" => sc_filter = Some(2),
+            "sc4" => sc_filter = Some(3),
+            "sc5" => sc_filter = Some(4),
+            "sc6" => sc_filter = Some(5),
+            "naive" => {
+                if !evals.contains(&"naive") {
+                    evals.push("naive");
+                }
+            }
+            "fast" => {
+                if !evals.contains(&"fast") {
+                    evals.push("fast");
+                }
+            }
+            other => eprintln!("argument inconnu ignoré : {other}"),
+        }
+    }
+    if evals.is_empty() {
+        evals.push("naive");
+        evals.push("fast");
+    }
+
+    let to_run: Vec<usize> = match sc_filter {
+        Some(i) => vec![i],
+        None => (0..scenarios.len()).collect(),
     };
 
-    let evaluator = NaiveEvaluator;
-
-    for &i in to_run {
+    for &i in &to_run {
         let (name, cond) = &scenarios[i];
-        let t = Instant::now();
-        let results = evaluator.run(cond);
-        let elapsed = t.elapsed();
-        let iters_per_sec = cond.iterations as f64 / elapsed.as_secs_f64();
-
         println!("=== {} ===", name);
-        println!("  durée    : {:>8.2?}", elapsed);
-        println!("  iters/s  : {:>10.0}", iters_per_sec);
-        for (j, o) in results.iter().enumerate() {
+
+        // Exécute chaque évaluateur demandé et collecte (durée, ips, résultats)
+        let mut runs: Vec<(&str, std::time::Duration, f64, Vec<poker::eval::SimOdds>)> = Vec::new();
+        for &eval_name in &evals {
+            let ev: Box<dyn Evaluator> = match eval_name {
+                "fast" => Box::new(FastEvaluator),
+                _ => Box::new(NaiveEvaluator),
+            };
+            let t = Instant::now();
+            let results = ev.run(cond);
+            let elapsed = t.elapsed();
+            let ips = cond.iterations as f64 / elapsed.as_secs_f64();
+            runs.push((eval_name, elapsed, ips, results));
+        }
+
+        // Affichage des timings (avec speedup si plusieurs évaluateurs)
+        let base_ips = runs[0].2;
+        for (k, (eval_name, elapsed, ips, _)) in runs.iter().enumerate() {
+            if runs.len() == 1 {
+                println!("  durée    : {:>8.2?}", elapsed);
+                println!("  iters/s  : {:>10.0}", ips);
+            } else {
+                let speedup = if k == 0 {
+                    String::new()
+                } else {
+                    format!("   ×{:.2} vs {}", ips / base_ips, runs[0].0)
+                };
+                println!(
+                    "  [{eval_name:<5}]  {:>8.2?}   {:>10.0} iters/s{speedup}",
+                    elapsed, ips
+                );
+            }
+        }
+
+        // Statistiques joueurs depuis le dernier évaluateur lancé
+        for (j, o) in runs.last().unwrap().3.iter().enumerate() {
             println!(
                 "  J{}  win={:5.1}%  pair={:5.1}%  deux-paires={:5.1}%  brelan={:5.1}%  flush={:5.1}%  sf={:5.1}%",
                 j + 1,

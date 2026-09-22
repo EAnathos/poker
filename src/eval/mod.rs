@@ -1,3 +1,4 @@
+pub mod fast;
 pub mod naive;
 
 use crate::card::Card;
