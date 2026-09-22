@@ -16,7 +16,7 @@ Deux objectifs distincts gouvernent le projet :
 
 ### 1.2 Architecture
 
-Trois évaluateurs coexistent dans `src/eval/` :
+Deux évaluateurs coexistent dans `src/eval/` :
 
 | Évaluateur | Fichier | Approche | Rôle |
 |---|---|---|---|
@@ -367,7 +367,7 @@ Le board est écrit une seule fois dans `seven[2..7]` par itération ; seules le
 
 #### Résultats mesurés
 
-Mesures sur **Setup A** (AMD Ryzen 5 5600H, Arch Linux, rustc 1.98.1), hyperfine, 10 runs, warmup 3 pour SC6, 100 runs warmup 10 pour SC1–SC5.
+Mesures sur **Setup A** (AMD Ryzen 5 5600H, Arch Linux, rustc 1.98.1), hyperfine, 100 runs warmup 10 pour SC1–SC5, 10 runs, warmup 3 pour SC6.
 
 | Scénario | naive iters/s | zero_alloc iters/s | Speedup |
 |---|---|---|---|
@@ -377,6 +377,17 @@ Mesures sur **Setup A** (AMD Ryzen 5 5600H, Arch Linux, rustc 1.98.1), hyperfine
 | SC4 - 4 joueurs, flop, 50k | 91 600 | 190 300 | **×2.08** |
 | SC5 - 3 joueurs, flop, 30k | 134 700 | 282 600 | **×2.10** |
 | SC6 - 2 joueurs, flop, 500k | 196 900 | 489 100 | **×2.42** |
+
+Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows, rustc 1.98.1), hyperfine, 100 runs warmup 10 pour SC1–SC5, 10 runs, warmup 3 pour SC6.
+
+| Scénario | naive iters/s | zero_alloc iters/s | Speedup |
+|---|---|---|---|
+| SC1 - 3 joueurs, flop, 50k | 90 900 | 204 000 | **×2.24** |
+| SC2 - 3 joueurs, turn, 75k | 109 000 | 342 000 | **×3.13** |
+| SC3 - 3 joueurs, flop, 50k | 84 000 | 195 000 | **×2.32** |
+| SC4 - 4 joueurs, flop, 50k | 61 300 | 130 200 | **×2.12** |
+| SC5 - 3 joueurs, flop, 30k | 88 000 | 182 600 | **×2.06** |
+| SC6 - 2 joueurs, flop, 500k | 138 000 | 336 300 | **×2.43** |
 
 ##### SC6 - mesure hyperfine détaillée
 
@@ -413,6 +424,8 @@ just profile sc6 zero_alloc
 | `best7` | 2.0 % |
 | `Rng::next` | 1.1 % |
 | reste (`pack`, `simulate`, …) | 14.1 % |
+
+**Note — Profiling Setup B (Windows) :** Cette analyse n'a pu être réalisée que sur le Setup A (Linux). Sur Windows, samply affiche des adresses hexadécimales au lieu des noms de fonctions en raison d'une incompatibilité entre les symboles DWARF produits par la chaîne mingw64 et le résolveur PDB attendu par samply. Les hotspots identifiés sont structurels à l'algorithme et indépendants de l'OS.
 
 **Réponse à l'hypothèse :** le shuffle (`Rng::next` + `ptr::copy` = ~4.6 %) est négligeable. Le goulot est `eval5` à 95 %, et au sein d'`eval5`, les deux `sort_unstable_by` (rangs `[u8; 5]` et fréquences `[(u8,u8)]`) représentent **~30 % du runtime total** (tris 14.2 % + comparaisons Ordering/`u8::lt` 14.4 %). L'insertion sort sur 5 éléments reste le principal vecteur de cycles perdus.
 
@@ -507,6 +520,27 @@ Benchmark 3: sort_free  sc6
 
 Summary: zero_alloc sc6 ran 1.15 ± 0.04 times faster than sort_free sc6
          zero_alloc sc6 ran 2.32 ± 0.07 times faster than naive sc6
+```
+
+Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows, rustc 1.98.1), hyperfine 10 runs warmup 3.
+
+```
+Benchmark 1: naive sc6
+  Time (mean ± σ):      3.730 s ±  0.075 s    [User: 3.627 s, System: 0.041 s]
+  Range (min … max):    3.650 s …  3.856 s    10 runs
+ 
+Benchmark 2: zero_alloc sc6
+  Time (mean ± σ):      1.490 s ±  0.047 s    [User: 1.439 s, System: 0.023 s]
+  Range (min … max):    1.439 s …  1.588 s    10 runs
+ 
+Benchmark 3: sort_free sc6
+  Time (mean ± σ):      1.823 s ±  0.065 s    [User: 1.777 s, System: 0.028 s]
+  Range (min … max):    1.785 s …  1.998 s    10 runs
+ 
+Summary
+  zero_alloc sc6 ran
+    1.22 ± 0.06 times faster than sort_free sc6
+    2.50 ± 0.09 times faster than naive sc6
 ```
 
 ##### Analyse
