@@ -44,9 +44,9 @@ bench-all: build _mkdir-results
       './target/release/bench naive' \
       './target/release/bench fast'
 
-# Flamegraph interactif via Firefox Profiler
-profile: build
-    samply record ./target/release/bench sc6 fast
+# Flamegraph interactif via Firefox Profiler — just profile [sc6] [fast|naive]
+profile ARGS="sc6 fast": build
+    samply record ./target/release/bench {{ARGS}}
 
 # Extraction des métriques depuis un fichier JSON (usage : just stats results/sc6.json)
 stats FILE:
