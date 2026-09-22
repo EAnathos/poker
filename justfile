@@ -7,6 +7,12 @@ install-tools:
 build:
     cargo build --release --bin bench
 
+format:
+    cargo fmt
+
+lint:
+    cargo clippy -- -D warnings
+
 # SC1 — AA vs KK vs QJs | Flop 9♠-T♠-2♦ | 50 000 iters
 bench-sc1: build
     hyperfine \
