@@ -71,9 +71,6 @@ just build
 ```bash
 # Linux / Setup A
 just profile
-
-# Windows / Setup B (PowerShell) — commande directe, just non disponible nativement
-samply record .\target\release\bench.exe
 ```
 
 Firefox Profiler s'ouvre automatiquement avec le flamegraph interactif.
@@ -93,12 +90,6 @@ just bench sc6
 
 # Comparatif naive vs fast sur l'ensemble SC1–SC6 en un seul appel
 just bench-all
-```
-
-```powershell
-# Windows / Setup B (PowerShell) — commandes directes
-New-Item -ItemType Directory -Force -Path results | Out-Null
-hyperfine --warmup 10 --runs 100 --shell=none --export-json results/baseline.json --export-markdown results/baseline.md '.\target\release\bench.exe'
 ```
 
 **Justification des paramètres :**
