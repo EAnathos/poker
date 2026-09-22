@@ -324,9 +324,20 @@ fn main() {
         ),
     ];
 
+    let to_run: &[usize] = match std::env::args().nth(1).as_deref() {
+        Some("sc1") => &[0],
+        Some("sc2") => &[1],
+        Some("sc3") => &[2],
+        Some("sc4") => &[3],
+        Some("sc5") => &[4],
+        Some("sc6") => &[5],
+        _ => &[0, 1, 2, 3, 4, 5],
+    };
+
     let evaluator = NaiveEvaluator;
 
-    for (name, cond) in scenarios {
+    for &i in to_run {
+        let (name, cond) = &scenarios[i];
         let t = Instant::now();
         let results = evaluator.run(cond);
         let elapsed = t.elapsed();
@@ -335,10 +346,10 @@ fn main() {
         println!("=== {} ===", name);
         println!("  durée    : {:>8.2?}", elapsed);
         println!("  iters/s  : {:>10.0}", iters_per_sec);
-        for (i, o) in results.iter().enumerate() {
+        for (j, o) in results.iter().enumerate() {
             println!(
                 "  J{}  win={:5.1}%  pair={:5.1}%  deux-paires={:5.1}%  brelan={:5.1}%  flush={:5.1}%  sf={:5.1}%",
-                i + 1,
+                j + 1,
                 o.win * 100.0,
                 o.pair * 100.0,
                 o.two_pair * 100.0,

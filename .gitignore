@@ -10,3 +10,7 @@ debug/
 
 # cargo-mutants
 **/mutants.out*/
+
+# Profiling
+profile.json.gz
+results_baseline.*

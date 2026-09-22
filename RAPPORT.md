@@ -39,11 +39,14 @@ Sup de Vinci - RNCP Bloc 4 - Session E42 Optimisations
 #### Installation
 
 ```bash
-# Hyperfine — mesure statistique de la durée d'exécution
-cargo install hyperfine
+# cargo-binstall — installe les binaires Rust sans recompilation (à faire en premier)
+cargo install cargo-binstall
 
-# Samply — flamegraph interactif (ouvre Firefox Profiler automatiquement)
-cargo install samply
+# just — exécuteur de recettes (via binstall, pas de compilation)
+cargo binstall just
+
+# Hyperfine et Samply via binstall (rapide, pas de compilation)
+just install-tools
 ```
 
 #### Activer les symboles de debug en release
@@ -53,24 +56,23 @@ Ajouter dans `Cargo.toml` :
 
 ```toml
 [profile.release]
-debug = 2
-split-debuginfo = "off"
-strip = "none"
+debug = 1        # line tables seulement — suffit pour samply
+strip = "none"   # garde les symboles — obligatoire
 ```
 
 #### Compiler le binaire de benchmark en release
 
 ```bash
-cargo build --release --bin bench
+just build
 ```
 
 #### Profiling avec Samply
 
 ```bash
 # Linux / Setup A
-samply record ./target/release/bench
+just profile
 
-# Windows / Setup B (PowerShell)
+# Windows / Setup B (PowerShell) — commande directe, just non disponible nativement
 samply record .\target\release\bench.exe
 ```
 
@@ -79,18 +81,25 @@ Firefox Profiler s'ouvre automatiquement avec le flamegraph interactif.
 #### Protocole de mesure (Hyperfine)
 
 ```bash
-# Linux / Setup A
-hyperfine \
-  --warmup 10 \
-  --runs 100 \
-  --shell=none \
-  --export-json results_baseline.json \
-  --export-markdown results_baseline.md \
-  './target/release/bench'
+# Linux / Setup A — baseline complète (tous scénarios sans argument)
+just bench-baseline
+
+# Scénarios individuels SC1–SC5
+just bench-sc1
+just bench-sc2
+just bench-sc3
+just bench-sc4
+just bench-sc5
+
+# SC6 haute précision (500k iters — ~9 s/run, 10 runs)
+just bench-sc6
+
+# Comparatif SC1–SC5 dans un seul appel hyperfine
+just bench-all
 ```
 
 ```powershell
-# Windows / Setup B (PowerShell)
+# Windows / Setup B (PowerShell) — commandes directes
 hyperfine --warmup 10 --runs 100 --shell=none --export-json results_baseline.json --export-markdown results_baseline.md '.\target\release\bench.exe'
 ```
 
@@ -102,16 +111,7 @@ hyperfine --warmup 10 --runs 100 --shell=none --export-json results_baseline.jso
 #### Extraction des métriques complètes depuis le JSON
 
 ```bash
-python -c "
-import json, statistics as s
-t = json.load(open('results_baseline.json'))['results'][0]['times']
-print(f'Moyenne   : {s.mean(t)*1000:.1f} ms')
-print(f'Médiane   : {s.median(t)*1000:.1f} ms')
-print(f'Écart-type: {s.stdev(t)*1000:.1f} ms')
-print(f'Variance  : {s.variance(t)*1e6:.2f} ms²')
-print(f'Min       : {min(t)*1000:.1f} ms')
-print(f'Max       : {max(t)*1000:.1f} ms')
-"
+just stats results_baseline.json
 ```
 
 **Setup A**
@@ -139,6 +139,30 @@ print(f'Max       : {max(t)*1000:.1f} ms')
 | Max | |
 
 > Isolation : <!-- décrire les processus parasites fermés, CPU governor fixé en performance, etc. -->
+
+---
+
+### 1.3 Automatisation (justfile)
+
+Prérequis :
+
+```bash
+cargo install cargo-binstall
+just install-tools   # installe hyperfine et samply
+```
+
+| Commande | Action |
+|----------|--------|
+| `just install-tools` | Installe hyperfine + samply via cargo-binstall |
+| `just build` | Compile le binaire `bench` en mode release |
+| `just bench-sc1` … `just bench-sc5` | Bench d'un scénario individuel (100 runs, warmup 10) |
+| `just bench-sc6` | SC6 haute précision (10 runs, warmup 3 — ~9 s/run) |
+| `just bench-all` | Comparatif SC1–SC5 dans un seul appel hyperfine |
+| `just bench-baseline` | Protocole §1.2 complet sur le binaire sans argument |
+| `just profile` | Flamegraph samply → Firefox Profiler |
+| `just stats results_sc1.json` | Extrait moyenne/médiane/σ/min/max du JSON |
+
+Chaque recette `bench-scN` passe l'argument `scN` au binaire, qui exécute uniquement le scénario correspondant — évite le bruit des autres scénarios dans la mesure Hyperfine.
 
 ---
 
