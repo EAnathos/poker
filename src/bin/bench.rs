@@ -3,74 +3,279 @@ use poker::eval::{Condition, Evaluator, naive::NaiveEvaluator};
 use std::time::Instant;
 
 fn main() {
-    let ak_spades = [
-        Some(Card {
-            rank: Rank::Ace,
-            suit: Suit::Spades,
-        }),
-        Some(Card {
-            rank: Rank::King,
-            suit: Suit::Spades,
-        }),
-    ];
-    let sevtwo = [
-        Some(Card {
-            rank: Rank::Seven,
-            suit: Suit::Hearts,
-        }),
-        Some(Card {
-            rank: Rank::Two,
-            suit: Suit::Diamonds,
-        }),
-    ];
-    let flop = [
-        Some(Card {
-            rank: Rank::Ace,
-            suit: Suit::Hearts,
-        }),
-        Some(Card {
-            rank: Rank::King,
-            suit: Suit::Diamonds,
-        }),
-        Some(Card {
-            rank: Rank::Two,
-            suit: Suit::Clubs,
-        }),
-        None,
-        None,
-    ];
-
     let scenarios: &[(&str, Condition)] = &[
         (
-            "2 joueurs  | board vide | 100k iters",
+            "AA vs KK vs QJs | flop 9s-Ts-2d | 50k iters",
             Condition {
-                players: vec![[None; 2]; 2],
-                board: [None; 5],
-                iterations: 100_000,
+                players: vec![
+                    [
+                        Some(Card {
+                            rank: Rank::Ace,
+                            suit: Suit::Spades,
+                        }),
+                        Some(Card {
+                            rank: Rank::Ace,
+                            suit: Suit::Clubs,
+                        }),
+                    ],
+                    [
+                        Some(Card {
+                            rank: Rank::King,
+                            suit: Suit::Spades,
+                        }),
+                        Some(Card {
+                            rank: Rank::King,
+                            suit: Suit::Clubs,
+                        }),
+                    ],
+                    [
+                        Some(Card {
+                            rank: Rank::Queen,
+                            suit: Suit::Spades,
+                        }),
+                        Some(Card {
+                            rank: Rank::Jack,
+                            suit: Suit::Spades,
+                        }),
+                    ],
+                ],
+                board: [
+                    Some(Card {
+                        rank: Rank::Nine,
+                        suit: Suit::Spades,
+                    }),
+                    Some(Card {
+                        rank: Rank::Ten,
+                        suit: Suit::Spades,
+                    }),
+                    Some(Card {
+                        rank: Rank::Two,
+                        suit: Suit::Diamonds,
+                    }),
+                    None,
+                    None,
+                ],
+                iterations: 50_000,
             },
         ),
         (
-            "6 joueurs  | board vide | 100k iters",
+            "AhKh vs 9c9d vs JcTc | turn 9h-8h-2s-3h | 75k iters",
             Condition {
-                players: vec![[None; 2]; 6],
-                board: [None; 5],
-                iterations: 100_000,
+                players: vec![
+                    [
+                        Some(Card {
+                            rank: Rank::Ace,
+                            suit: Suit::Hearts,
+                        }),
+                        Some(Card {
+                            rank: Rank::King,
+                            suit: Suit::Hearts,
+                        }),
+                    ],
+                    [
+                        Some(Card {
+                            rank: Rank::Nine,
+                            suit: Suit::Clubs,
+                        }),
+                        Some(Card {
+                            rank: Rank::Nine,
+                            suit: Suit::Diamonds,
+                        }),
+                    ],
+                    [
+                        Some(Card {
+                            rank: Rank::Jack,
+                            suit: Suit::Clubs,
+                        }),
+                        Some(Card {
+                            rank: Rank::Ten,
+                            suit: Suit::Clubs,
+                        }),
+                    ],
+                ],
+                board: [
+                    Some(Card {
+                        rank: Rank::Nine,
+                        suit: Suit::Hearts,
+                    }),
+                    Some(Card {
+                        rank: Rank::Eight,
+                        suit: Suit::Hearts,
+                    }),
+                    Some(Card {
+                        rank: Rank::Two,
+                        suit: Suit::Spades,
+                    }),
+                    Some(Card {
+                        rank: Rank::Three,
+                        suit: Suit::Hearts,
+                    }),
+                    None,
+                ],
+                iterations: 75_000,
             },
         ),
         (
-            "As-K♠ vs 7-2  | flop AK2 | 100k iters",
+            "7s6s vs AdKd vs QcQh | flop 8s-9d-2s | 50k iters",
             Condition {
-                players: vec![ak_spades, sevtwo],
-                board: flop,
-                iterations: 100_000,
+                players: vec![
+                    [
+                        Some(Card {
+                            rank: Rank::Seven,
+                            suit: Suit::Spades,
+                        }),
+                        Some(Card {
+                            rank: Rank::Six,
+                            suit: Suit::Spades,
+                        }),
+                    ],
+                    [
+                        Some(Card {
+                            rank: Rank::Ace,
+                            suit: Suit::Diamonds,
+                        }),
+                        Some(Card {
+                            rank: Rank::King,
+                            suit: Suit::Diamonds,
+                        }),
+                    ],
+                    [
+                        Some(Card {
+                            rank: Rank::Queen,
+                            suit: Suit::Clubs,
+                        }),
+                        Some(Card {
+                            rank: Rank::Queen,
+                            suit: Suit::Hearts,
+                        }),
+                    ],
+                ],
+                board: [
+                    Some(Card {
+                        rank: Rank::Eight,
+                        suit: Suit::Spades,
+                    }),
+                    Some(Card {
+                        rank: Rank::Nine,
+                        suit: Suit::Diamonds,
+                    }),
+                    Some(Card {
+                        rank: Rank::Two,
+                        suit: Suit::Spades,
+                    }),
+                    None,
+                    None,
+                ],
+                iterations: 50_000,
             },
         ),
         (
-            "2 joueurs  | board vide | 1M iters",
+            "As5s vs KdKc vs QhJh vs joueur inconnu | flop 2s-3d-8s | 30k iters",
             Condition {
-                players: vec![[None; 2]; 2],
-                board: [None; 5],
-                iterations: 1_000_000,
+                players: vec![
+                    [
+                        Some(Card {
+                            rank: Rank::Ace,
+                            suit: Suit::Spades,
+                        }),
+                        Some(Card {
+                            rank: Rank::Five,
+                            suit: Suit::Spades,
+                        }),
+                    ],
+                    [
+                        Some(Card {
+                            rank: Rank::King,
+                            suit: Suit::Diamonds,
+                        }),
+                        Some(Card {
+                            rank: Rank::King,
+                            suit: Suit::Clubs,
+                        }),
+                    ],
+                    [
+                        Some(Card {
+                            rank: Rank::Queen,
+                            suit: Suit::Hearts,
+                        }),
+                        Some(Card {
+                            rank: Rank::Jack,
+                            suit: Suit::Hearts,
+                        }),
+                    ],
+                    [None; 2],
+                ],
+                board: [
+                    Some(Card {
+                        rank: Rank::Two,
+                        suit: Suit::Spades,
+                    }),
+                    Some(Card {
+                        rank: Rank::Three,
+                        suit: Suit::Diamonds,
+                    }),
+                    Some(Card {
+                        rank: Rank::Eight,
+                        suit: Suit::Spades,
+                    }),
+                    None,
+                    None,
+                ],
+                iterations: 50_000,
+            },
+        ),
+        (
+            "Ah5h vs JdJc vs 7c6c | flop 4h-5s-6h | 50k iters",
+            Condition {
+                players: vec![
+                    [
+                        Some(Card {
+                            rank: Rank::Ace,
+                            suit: Suit::Hearts,
+                        }),
+                        Some(Card {
+                            rank: Rank::Five,
+                            suit: Suit::Hearts,
+                        }),
+                    ],
+                    [
+                        Some(Card {
+                            rank: Rank::Jack,
+                            suit: Suit::Diamonds,
+                        }),
+                        Some(Card {
+                            rank: Rank::Jack,
+                            suit: Suit::Clubs,
+                        }),
+                    ],
+                    [
+                        Some(Card {
+                            rank: Rank::Seven,
+                            suit: Suit::Clubs,
+                        }),
+                        Some(Card {
+                            rank: Rank::Six,
+                            suit: Suit::Clubs,
+                        }),
+                    ],
+                ],
+                board: [
+                    Some(Card {
+                        rank: Rank::Four,
+                        suit: Suit::Hearts,
+                    }),
+                    Some(Card {
+                        rank: Rank::Five,
+                        suit: Suit::Spades,
+                    }),
+                    Some(Card {
+                        rank: Rank::Six,
+                        suit: Suit::Hearts,
+                    }),
+                    None,
+                    None,
+                ],
+                iterations: 30_000,
             },
         ),
     ];

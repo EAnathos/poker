@@ -6,3 +6,8 @@ edition = "2024"
 [dependencies]
 eframe = "0.36.2"
 egui = "0.36.2"
+
+[profile.release]
+debug = 2
+split-debuginfo = "off"
+strip = "none"
