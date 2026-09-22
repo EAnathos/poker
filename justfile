@@ -73,8 +73,8 @@ bench-all: build _mkdir-results
       '{{EXE}} fast'
 
 # Flamegraph interactif via Firefox Profiler — just profile [sc6] [fast|naive]
-profile ARGS="sc6 fast": build
-    samply record {{EXE}} {{ARGS}}
+profile SC="sc6" EVAL="fast": build
+    samply record {{EXE}} {{SC}} {{EVAL}}
 
 # ── Métriques ─────────────────────────────────────────────────────────────────
 

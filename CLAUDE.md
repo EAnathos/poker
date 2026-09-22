@@ -31,7 +31,7 @@ Commandes de référence du projet :
 |----------|----------|
 | Mesure statistique (scénario isolé) | `just bench-sc1` … `just bench-sc6` |
 | Comparatif SC1–SC5 | `just bench-all` |
-| Flamegraph interactif (samply → Firefox Profiler) | `just profile` |
+| Flamegraph interactif (samply → Firefox Profiler) | `just profile [sc1..sc6] [naive\|fast]` |
 | Compteurs matériels bas niveau | `perf stat -e cache-misses,cache-references,instructions,cycles ./target/release/bench sc1` |
 | Compilation release | `just build` |
 
