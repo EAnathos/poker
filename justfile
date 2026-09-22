@@ -31,8 +31,8 @@ _mkdir-results:
 
 # ── Benchmarks ────────────────────────────────────────────────────────────────
 
-# Benchmark d'un scénario — just bench sc1 [naive|fast]
-# Sans évaluateur : compare naive vs fast. Avec : un seul.
+# Benchmark d'un scénario — just bench sc1 [naive|zero_alloc|sort_free]
+# Sans évaluateur : compare les trois. Avec : un seul.
 # SC6 (500k iters) : warmup 3, runs 10 — autres : warmup 10, runs 100
 [unix]
 bench SC EVAL="": build _mkdir-results
@@ -42,12 +42,14 @@ bench SC EVAL="": build _mkdir-results
     if [ -z "{{EVAL}}" ]; then
       hyperfine \
         --warmup $warmup --runs $runs --shell=none \
-        --command-name "naive {{SC}}" \
-        --command-name "fast  {{SC}}" \
+        --command-name "naive      {{SC}}" \
+        --command-name "zero_alloc {{SC}}" \
+        --command-name "sort_free  {{SC}}" \
         --export-json {{RESULTS_DIR}}/{{SC}}.json \
         --export-markdown {{RESULTS_DIR}}/{{SC}}.md \
         '{{EXE}} {{SC}} naive' \
-        '{{EXE}} {{SC}} fast'
+        '{{EXE}} {{SC}} zero_alloc' \
+        '{{EXE}} {{SC}} sort_free'
     else
       hyperfine \
         --warmup $warmup --runs $runs --shell=none \
@@ -59,21 +61,23 @@ bench SC EVAL="": build _mkdir-results
 
 [windows]
 bench SC EVAL="": build _mkdir-results
-    hyperfine --warmup {{ if SC == "sc6" { "3" } else { "10" } }} --runs {{ if SC == "sc6" { "10" } else { "100" } }} --shell=none {{ if EVAL == "" { '--command-name "naive ' + SC + '" --command-name "fast ' + SC + '" "' + EXE + ' ' + SC + ' naive" "' + EXE + ' ' + SC + ' fast" --export-json "' + RESULTS_DIR + '/' + SC + '.json" --export-markdown "' + RESULTS_DIR + '/' + SC + '.md"' } else { '--command-name "' + EVAL + ' ' + SC + '" "' + EXE + ' ' + SC + ' ' + EVAL + '" --export-json "' + RESULTS_DIR + '/' + SC + '_' + EVAL + '.json" --export-markdown "' + RESULTS_DIR + '/' + SC + '_' + EVAL + '.md"' } }}
+    hyperfine --warmup {{ if SC == "sc6" { "3" } else { "10" } }} --runs {{ if SC == "sc6" { "10" } else { "100" } }} --shell=none {{ if EVAL == "" { '--command-name "naive ' + SC + '" --command-name "zero_alloc ' + SC + '" --command-name "sort_free ' + SC + '" "' + EXE + ' ' + SC + ' naive" "' + EXE + ' ' + SC + ' zero_alloc" "' + EXE + ' ' + SC + ' sort_free" --export-json "' + RESULTS_DIR + '/' + SC + '.json" --export-markdown "' + RESULTS_DIR + '/' + SC + '.md"' } else { '--command-name "' + EVAL + ' ' + SC + '" "' + EXE + ' ' + SC + ' ' + EVAL + '" --export-json "' + RESULTS_DIR + '/' + SC + '_' + EVAL + '.json" --export-markdown "' + RESULTS_DIR + '/' + SC + '_' + EVAL + '.md"' } }}
 
-# Compare naive vs fast sur l'ensemble SC1–SC6
+# Compare naive vs zero_alloc vs sort_free sur l'ensemble SC1–SC6
 bench-all: build _mkdir-results
     hyperfine \
       --warmup 3 --runs 10 --shell=none \
       --command-name "naive" \
-      --command-name "fast" \
+      --command-name "zero_alloc" \
+      --command-name "sort_free" \
       --export-json {{RESULTS_DIR}}/all.json \
       --export-markdown {{RESULTS_DIR}}/all.md \
       '{{EXE}} naive' \
-      '{{EXE}} fast'
+      '{{EXE}} zero_alloc' \
+      '{{EXE}} sort_free'
 
-# Flamegraph interactif via Firefox Profiler — just profile [sc6] [fast|naive]
-profile SC="sc6" EVAL="fast": build
+# Flamegraph interactif via Firefox Profiler — just profile [sc6] [naive|zero_alloc|sort_free]
+profile SC="sc6" EVAL="sort_free": build
     samply record {{EXE}} {{SC}} {{EVAL}}
 
 # ── Métriques ─────────────────────────────────────────────────────────────────

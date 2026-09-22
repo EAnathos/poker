@@ -21,9 +21,10 @@ Deux évaluateurs coexistent dans `src/eval/` :
 | Évaluateur | Fichier | Approche | Rôle |
 |---|---|---|---|
 | `naive` | `src/eval/naive.rs` | Allocations heap (`Vec`) à chaque appel | Référence de correction |
-| `fast` | `src/eval/fast.rs` | Buffers stack, encodage `u32` | Cible d'optimisation |
+| `zero_alloc` | `src/eval/zero_alloc.rs` | Buffers stack, encodage `u32`, deux tris | Optimisation 1 |
+| `sort_free` | `src/eval/sort_free.rs` | Comme `zero_alloc`, sans aucun tri | Optimisation 2 |
 
-Le binaire `bench` (`src/bin/bench.rs`) orchestre les simulations et sert de point de mesure Hyperfine. Chaque exécution prend un scénario (`sc1`–`sc6`) et un évaluateur (`naive` ou `fast`) en argument de ligne de commande.
+Le binaire `bench` (`src/bin/bench.rs`) orchestre les simulations et sert de point de mesure Hyperfine. Chaque exécution prend un scénario (`sc1`–`sc6`) et un évaluateur (`naive`, `zero_alloc` ou `sort_free`) en argument de ligne de commande.
 
 ---
 
@@ -95,7 +96,7 @@ just build
 just profile
 
 # Scénario et évaluateur explicites
-just profile sc6 fast
+just profile sc6 sort_free
 just profile sc1 naive
 ```
 
@@ -104,7 +105,7 @@ Firefox Profiler s'ouvre automatiquement avec le flamegraph interactif.
 #### Protocole de mesure (Hyperfine)
 
 ```bash
-# Scénario individuel — compare naive vs fast sur un scénario
+# Scénario individuel — compare naive vs zero_alloc vs sort_free sur un scénario
 just bench sc1
 just bench sc2
 just bench sc3
@@ -114,7 +115,7 @@ just bench sc5
 # SC6 haute précision (500k iters — ~2.5 s/run, 10 runs)
 just bench sc6
 
-# Comparatif naive vs fast sur l'ensemble SC1–SC6 en un seul appel
+# Comparatif naive vs zero_alloc vs sort_free sur l'ensemble SC1–SC6
 just bench-all
 ```
 
@@ -180,12 +181,12 @@ just stats results/baseline.json
 | `just build` | Compile le binaire `bench` en mode release |
 | `just format` | Formate le code (`cargo fmt`) |
 | `just lint` | Vérifie le code (`cargo clippy -D warnings`) |
-| `just bench sc1` … `just bench sc6` | Compare naive vs fast sur le scénario (100 runs / 10 runs pour sc6) |
-| `just bench-all` | Compare naive vs fast sur l'ensemble SC1–SC6 (10 runs, warmup 3) |
-| `just profile [sc] [eval]` | Flamegraph samply → Firefox Profiler (défaut : sc6 fast) |
+| `just bench sc1` … `just bench sc6` | Compare naive vs zero_alloc vs sort_free (100 runs / 10 runs pour sc6) |
+| `just bench-all` | Compare les trois évaluateurs sur l'ensemble SC1–SC6 (10 runs, warmup 3) |
+| `just profile [sc] [eval]` | Flamegraph samply → Firefox Profiler (défaut : sc6 sort_free) |
 | `just stats results/sc6.json` | Extrait moyenne/médiane/σ/min/max du JSON pour chaque évaluateur |
 
-La recette `bench` prend le scénario en argument (`just bench sc6`) et passe les arguments `scN naive` puis `scN fast` à deux commandes Hyperfine distinctes, le comparatif est affiché nativement avec le ratio de vitesse.
+La recette `bench` prend le scénario en argument (`just bench sc6`) et passe les trois commandes à Hyperfine, le comparatif est affiché nativement avec le ratio de vitesse.
 
 ---
 
@@ -307,7 +308,7 @@ Le nombre d'itérations est calibré de façon à ce que chaque scénario s'exé
 
 ## 4. Optimisations
 
-### 4.1 Optimisation 1 - FastEvaluator : Zéro Allocation sur le Hot Path
+### 4.1 Optimisation 1 - ZeroAllocEvaluator : Zéro Allocation sur le Hot Path
 
 #### Diagnostic
 
@@ -335,7 +336,7 @@ just bench sc6
 
 #### Implémentation
 
-**Fichier :** `src/eval/fast.rs`
+**Fichier :** `src/eval/zero_alloc.rs`
 
 ##### Encodage u32 de la main
 
@@ -354,7 +355,7 @@ Chaque rang (2–14) tient dans 4 bits. La comparaison `u32 > u32` remplace l'`O
 
 ##### Buffers stack réutilisés
 
-| Avant (naive) | Après (fast) |
+| Avant (naive) | Après (zero_alloc) |
 |---|---|
 | `Vec<u8>` de 5 éléments | `[u8; 5]` |
 | `Vec<(u8, u8)>` de 13 éléments max | `[(u8, u8); 5]` |
@@ -368,7 +369,7 @@ Le board est écrit une seule fois dans `seven[2..7]` par itération ; seules le
 
 Mesures sur **Setup A** (AMD Ryzen 5 5600H, Arch Linux, rustc 1.98.1), hyperfine, 10 runs, warmup 3 pour SC6, 100 runs warmup 10 pour SC1–SC5.
 
-| Scénario | naive iters/s | fast iters/s | Speedup |
+| Scénario | naive iters/s | zero_alloc iters/s | Speedup |
 |---|---|---|---|
 | SC1 - 3 joueurs, flop, 50k | 138 300 | 309 900 | **×2.24** |
 | SC2 - 3 joueurs, turn, 75k | 169 200 | 520 700 | **×3.08** |
@@ -380,13 +381,13 @@ Mesures sur **Setup A** (AMD Ryzen 5 5600H, Arch Linux, rustc 1.98.1), hyperfine
 ##### SC6 - mesure hyperfine détaillée
 
 ```
-Benchmark 1: naive sc6
+Benchmark 1: naive      sc6
   Time (mean ± σ):   2.546 s ±  0.023 s   [min: 2.523 s … max: 2.594 s]
 
-Benchmark 2: fast  sc6
+Benchmark 2: zero_alloc sc6
   Time (mean ± σ):   1.103 s ±  0.011 s   [min: 1.091 s … max: 1.121 s]
 
-Summary: fast sc6 ran 2.31 ± 0.03 times faster than naive sc6
+Summary: zero_alloc sc6 ran 2.31 ± 0.03 times faster than naive sc6
 ```
 
 ##### Analyse
@@ -395,15 +396,15 @@ Summary: fast sc6 ran 2.31 ± 0.03 times faster than naive sc6
 - SC4 (×2.08) est le gain le plus modeste : avec 4 joueurs et un joueur inconnu, le tirage de cartes supplémentaires et la gestion des `Option<Card>` représentent une fraction non négligeable du temps, non couverte par l'optimisation courante.
 - La réduction de la variance (σ passe de 23 ms à 11 ms sur SC6) confirme l'élimination de la pression GC : les pics de latence liés aux consolidations d'allocateur ont disparu.
 
-##### Profil samply - fast sc6 (1 072 samples)
+##### Profil samply - zero_alloc sc6 (1 072 samples)
 
 ```
-just profile sc6 fast
+just profile sc6 zero_alloc
 ```
 
 | Symbole | Self time |
 |---|---|
-| `poker::eval::fast::eval5` (corps) | **50.7 %** |
+| `poker::eval::zero_alloc::eval5` (corps) | **50.7 %** |
 | `<Ordering as PartialEq>::eq` | 9.0 % |
 | `insert_tail::<(u8,u8)>` (sort counts) | 7.9 % |
 | `insert_tail::<u8>` (sort vals) | 6.3 % |
@@ -421,8 +422,112 @@ just profile sc6 fast
 
 **Vérification :**
 ```bash
-just bench sc6 fast
+just bench sc6 zero_alloc sort_free
 ```
+
+---
+
+### 4.2 Optimisation 2 - SortFreeEvaluator : Suppression des Tris
+
+#### Diagnostic
+
+Le profil samply de `zero_alloc` (section 4.1) montre que les deux `sort_unstable_by` dans `eval5` représentent **~30 % du runtime total** :
+
+| Symbole | Self time |
+|---|---|
+| `<Ordering as PartialEq>::eq` | 9.0 % |
+| `insert_tail::<(u8,u8)>` (tri fréquences) | 7.9 % |
+| `insert_tail::<u8>` (tri rangs) | 6.3 % |
+| `<u8 as PartialOrd>::lt` | 5.4 % |
+
+**Hypothèse :** supprimer les deux `sort_unstable_by` en les remplaçant par un scan direct de la table de fréquences (quinte) et des buckets remplis de rang 14 → 2 (groupes) doit éliminer ~30 % des cycles selon la loi d'Amdahl : vitesse max = 1 / (1 - 0.30) ≈ **×1.43**.
+
+**Vérification :**
+```bash
+just bench sc6 zero_alloc sort_free
+```
+
+#### Implémentation
+
+**Fichier :** `src/eval/sort_free.rs`
+
+Deux algorithmes remplacent les tris :
+
+##### Scan freq table pour la détection de quinte
+
+Le premier `sort_unstable_by` triait `[u8; 5]` pour pouvoir vérifier `v[0]==v[1]+1 && ...`. Remplacé par un scan descendant direct sur `freq[2..=14]` :
+
+```rust
+// O(9) itérations max, aucun closure ni comparateur générique
+let mut straight_top = 0u8;
+for h in (6u8..=14).rev() {
+    if freq[h] > 0 && freq[h-1] > 0 && freq[h-2] > 0
+       && freq[h-3] > 0 && freq[h-4] > 0
+    {
+        straight_top = h;
+        break;
+    }
+}
+```
+
+Le wheel (A-2-3-4-5) est détecté par cinq accès directs : `freq[14]>0 && freq[5]>0 && ... && freq[2]>0`.
+
+##### Buckets typés pour les groupes de fréquence
+
+Le second `sort_unstable_by` triait `[(rank, freq); n]` par `(freq desc, rank desc)`. Remplacé par une itération unique de rang 14 → 2 qui remplit des buckets séparés :
+
+```rust
+// Un seul passage O(13), buckets déjà ordonnés descend. par construction
+for r in (2u8..=14).rev() {
+    match freq[r as usize] {
+        4 => quad = r,
+        3 => trip = r,
+        2 => { pairs[np] = r; np += 1; }
+        1 => { singles[ns] = r; ns += 1; }
+        _ => {}
+    }
+}
+```
+
+Invariant garanti sans comparaison : `pairs[0] >= pairs[1]`, `singles[0] >= ... >= singles[4]`.
+
+#### Résultats mesurés
+
+Mesures sur **Setup A** (AMD Ryzen 5 5600H, Arch Linux, rustc 1.98.1), hyperfine 10 runs warmup 3.
+
+```
+Benchmark 1: naive      sc6
+  Time (mean ± σ):   2.502 s ±  0.040 s    [min: 2.446 s … max: 2.568 s]
+
+Benchmark 2: zero_alloc sc6
+  Time (mean ± σ):   1.076 s ±  0.025 s    [min: 1.055 s … max: 1.126 s]
+
+Benchmark 3: sort_free  sc6
+  Time (mean ± σ):   1.233 s ±  0.034 s    [min: 1.189 s … max: 1.293 s]
+
+Summary: zero_alloc sc6 ran 1.15 ± 0.04 times faster than sort_free sc6
+         zero_alloc sc6 ran 2.32 ± 0.07 times faster than naive sc6
+```
+
+##### Analyse
+
+**Hypothèse invalidée.** `sort_free` est **14.6 % plus lent** que `zero_alloc`, au lieu du ×1.43 attendu.
+
+**Explication :** sur n = 5 éléments, `sort_unstable_by` est compilé en une séquence d'environ 12 comparaisons inlinées (insertion sort déroulé), totalement en cache L1 (données = 5 × 1 octet = 5 octets). Le surcoût mesuré par le profiler (**~30 %**) ne correspond pas au surcoût évité par le remplacement, car le nouvel algorithme introduit plus de travail total :
+
+| Étape | zero_alloc | sort_free |
+|---|---|---|
+| Construction de v `[u8;5]` | O(5) | - |
+| Tri de v | O(5 log 5) ≈ 12 cmp | - |
+| Détection de quinte | 4 comparaisons | O(9) × 5 accès freq = O(45) |
+| Construction cnt `[(u8,u8)]` | O(13) | O(13) |
+| Tri de cnt | O(5 log 5) ≈ 12 cmp | - |
+| Remplissage buckets | - | O(13) + match 4 branches |
+| **Total opérations clés** | **~54** | **~71** |
+
+La loi d'Amdahl suppose que la portion à optimiser disparaît sans coût de remplacement. Ici le remplacement ajoute ~17 opérations supplémentaires là où le tri n'en coûtait que ~12 chacun. Pour n très faible (≤ 5) et des données tenant dans une ligne de cache (5 octets), le tri est une opération quasi-gratuite.
+
+**Conclusion :** la portion à 30 % dans le profil reflète le coût absolu des tris, non leur coût marginal par rapport à une alternative. Supprimer un tri sur 5 éléments sans alternative plus économique déplace le coût, pas l'élimine.
 
 ---
 

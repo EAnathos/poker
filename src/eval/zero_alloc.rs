@@ -41,6 +41,8 @@ fn pack(cat: u8, t0: u8, t1: u8, t2: u8, t3: u8, t4: u8) -> u32 {
 }
 
 /// Évalue exactement 5 cartes — zéro allocation heap.
+/// Optimisation 1 : HandValue { Vec<u8> } remplacé par u32 encodé,
+/// buffers Vec remplacés par tableaux stack.
 #[inline(always)]
 fn eval5(cards: [Card; 5]) -> u32 {
     let mut v = [0u8; 5];
@@ -163,11 +165,11 @@ impl Rng {
     }
 }
 
-// ── FastEvaluator ─────────────────────────────────────────────────────────────
+// ── ZeroAllocEvaluator ────────────────────────────────────────────────────────
 
-pub struct FastEvaluator;
+pub struct ZeroAllocEvaluator;
 
-impl Evaluator for FastEvaluator {
+impl Evaluator for ZeroAllocEvaluator {
     fn run(&self, condition: &Condition) -> Vec<SimOdds> {
         simulate(&condition.players, &condition.board, condition.iterations)
     }

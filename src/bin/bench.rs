@@ -1,5 +1,8 @@
 use poker::card::{Card, Rank, Suit};
-use poker::eval::{Condition, Evaluator, fast::FastEvaluator, naive::NaiveEvaluator};
+use poker::eval::{
+    Condition, Evaluator, naive::NaiveEvaluator, sort_free::SortFreeEvaluator,
+    zero_alloc::ZeroAllocEvaluator,
+};
 use std::time::Instant;
 
 fn main() {
@@ -325,11 +328,11 @@ fn main() {
     ];
 
     // ── Parsing des arguments ─────────────────────────────────────────────────
-    // Usage : bench [sc1..sc6] [naive] [fast]  (ordre libre, tout optionnel)
+    // Usage : bench [sc1..sc6] [naive] [zero_alloc] [sort_free]  (ordre libre, tout optionnel)
     // Exemples :
-    //   bench sc6 naive fast   → compare les deux sur sc6
-    //   bench fast             → tous les scénarios, fast uniquement
-    //   bench                  → tous les scénarios, naive uniquement
+    //   bench sc6 zero_alloc sort_free   → compare les deux sur sc6
+    //   bench sort_free                  → tous les scénarios, sort_free uniquement
+    //   bench                            → tous les scénarios, les trois évaluateurs
     let mut sc_filter: Option<usize> = None;
     let mut evals: Vec<&'static str> = Vec::new();
 
@@ -346,9 +349,14 @@ fn main() {
                     evals.push("naive");
                 }
             }
-            "fast" => {
-                if !evals.contains(&"fast") {
-                    evals.push("fast");
+            "zero_alloc" => {
+                if !evals.contains(&"zero_alloc") {
+                    evals.push("zero_alloc");
+                }
+            }
+            "sort_free" => {
+                if !evals.contains(&"sort_free") {
+                    evals.push("sort_free");
                 }
             }
             other => eprintln!("argument inconnu ignoré : {other}"),
@@ -356,7 +364,8 @@ fn main() {
     }
     if evals.is_empty() {
         evals.push("naive");
-        evals.push("fast");
+        evals.push("zero_alloc");
+        evals.push("sort_free");
     }
 
     let to_run: Vec<usize> = match sc_filter {
@@ -372,7 +381,8 @@ fn main() {
         let mut runs: Vec<(&str, std::time::Duration, f64, Vec<poker::eval::SimOdds>)> = Vec::new();
         for &eval_name in &evals {
             let ev: Box<dyn Evaluator> = match eval_name {
-                "fast" => Box::new(FastEvaluator),
+                "zero_alloc" => Box::new(ZeroAllocEvaluator),
+                "sort_free" => Box::new(SortFreeEvaluator),
                 _ => Box::new(NaiveEvaluator),
             };
             let t = Instant::now();
@@ -395,7 +405,7 @@ fn main() {
                     format!("   ×{:.2} vs {}", ips / base_ips, runs[0].0)
                 };
                 println!(
-                    "  [{eval_name:<5}]  {:>8.2?}   {:>10.0} iters/s{speedup}",
+                    "  [{eval_name:<10}]  {:>8.2?}   {:>10.0} iters/s{speedup}",
                     elapsed, ips
                 );
             }

@@ -1,5 +1,6 @@
-pub mod fast;
 pub mod naive;
+pub mod sort_free;
+pub mod zero_alloc;
 
 use crate::card::Card;
 
