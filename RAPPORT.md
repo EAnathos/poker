@@ -313,8 +313,6 @@ Le nombre d'itérations est calibré de façon à ce que chaque scénario s'exé
 
 ### 4.1 Optimisation 1 - ZeroAllocEvaluator : Zéro Allocation sur le Hot Path
 
-> **Type : micro-optimisation.** Même algorithme, même structure d'appels — seules les structures de données changent : `Vec` heap remplacés par des tableaux stack et un `u32` encodé. Le gain vient de l'élimination de la pression allocateur, pas d'une réduction du nombre d'opérations logiques.
-
 #### Diagnostic
 
 Le profiling de la version naïve révèle une pression allocateur omniprésente sur le hot path. Pour chaque simulation, la fonction `evaluate_five` est appelée **21 fois** (C(7,5) combinaisons), et chaque appel effectue plusieurs allocations heap :
@@ -446,8 +444,6 @@ just bench sc6 zero_alloc sort_free
 ---
 
 ### 4.2 Optimisation 2 - SortFreeEvaluator : Suppression des Tris
-
-> **Type : micro-optimisation (invalidée).** Même algorithme `zero_alloc`, même nombre d'appels à `eval5` — seul le tri interne est remplacé par un scan de fréquences. L'optimisation opère à l'intérieur d'une fonction feuille sans toucher à l'architecture d'appel.
 
 #### Diagnostic
 
@@ -582,8 +578,6 @@ Optimiser `eval5` avec `sort_free` revenait à rendre plus rapide chacun des 21 
 
 ### 4.3 Optimisation 3 - FisherEvaluator : Partial Fisher-Yates sur le Shuffle
 
-> **Type : micro-optimisation.** La boucle de simulation reste identique ; seule la primitive de shuffle est affinée — O(n_needed) swaps au lieu de O(|deck|) et suppression de la division entière par multiplication 128-bit (Lemire). Gain plafonné par la part du shuffle dans le runtime total (~5 %).
-
 #### Diagnostic
 
 Le profil samply de `zero_alloc` (section 4.1) indique que le shuffle représente une fraction modeste mais mesurable du runtime :
@@ -692,8 +686,6 @@ Le goulot dominant reste `best7` + 21 appels à `eval5`, non modifié dans cette
 
 ### 4.4 Optimisation 4 - Eval7Evaluator : Évaluation Directe 7 Cartes
 
-> **Type : macro-optimisation.** L'architecture d'appel est restructurée : `best7` (21 × `eval5`) est supprimé et remplacé par `eval7` (1 passe directe sur 7 cartes). Ce n'est pas une amélioration d'implémentation mais un changement d'algorithme — le nombre d'évaluations par itération passe de 21 à 1, d'où le facteur ×8–13 observé, bien supérieur à tout gain micro possible.
-
 #### Diagnostic
 
 Après `fisher`, le profil identifie `best7` + ses 21 appels à `eval5` comme le goulot absolu (~90 % du runtime). Le problème structurel est l'énumération des C(7,5) = 21 combinaisons :
@@ -797,8 +789,6 @@ Le gain de `fisher` (×1.08) est quasi-invisible par rapport au gain de `eval7` 
 ---
 
 ### 4.5 Optimisation 5 - LutEvaluator : Tables de Classement Pré-calculées
-
-> **Type : macro-optimisation.** L'approche passe du **calcul** à la **consultation mémoire** : au lieu d'évaluer chaque main à la volée (tris, scan, branches), toutes les valeurs possibles sont précalculées une fois et indexées. C'est un changement de paradigme algorithmique conditionnel au volume d'itérations (seuil 200 000) et à la taille des tables en cache.
 
 #### Diagnostic
 
@@ -934,8 +924,6 @@ Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows 11, rustc 1.98.1), hyperfine
 
 ### 4.6 Optimisation 6 - LutParEvaluator : Parallélisation Monte Carlo via Rayon
 
-> **Type : macro-optimisation.** La structure séquentielle de la boucle Monte Carlo est remplacée par une exécution parallèle sur tous les cœurs disponibles via Rayon. Ce n'est pas un raffinement d'une opération existante mais une réorganisation du modèle d'exécution : chaque thread traite un sous-ensemble d'itérations indépendantes.
-
 #### Diagnostic
 
 La simulation Monte Carlo est **embarrassingly parallel** : chaque itération est indépendante du reste — aucune dépendance de données entre deux tirages successifs. Après `lut`, le profil ne présente plus aucun goulot algorithmique ; le seul levier restant est la parallélisation horizontale sur les cœurs physiques disponibles.
@@ -991,16 +979,16 @@ fn new_seeded(tid: usize) -> Self {
 
 Mesures sur **Setup A** (AMD Ryzen 5 5600H, 6C/12T, Arch Linux, rustc 1.98.1).
 
-| Scénario | lut iters/s | lut_par iters/s | Speedup | Comportement |
-|---|---|---|---|---|
-| SC1 - 3j flop, 50k   |  4 717 000 | 14 706 000 | **×3.12** | < seuil → eval7_inline par thread |
-| SC2 - 3j turn, 75k   |  6 303 000 | 20 270 000 | **×3.23** | < seuil → eval7_inline par thread |
-| SC3 - 3j flop, 50k   |  4 386 000 | 14 286 000 | **×3.28** | < seuil → eval7_inline par thread |
-| SC4 - 4j flop, 50k   |  2 924 000 | 10 204 000 | **×3.50** | < seuil → eval7_inline par thread |
-| SC5 - 3j flop, 30k   |  4 286 000 | 11 111 000 | **×2.55** | < seuil → eval7_inline par thread |
-| SC6 - 2j flop, 500k  | 11 682 000 | 28 902 000 | **×2.47** | ≥ seuil → LUT chaud en L3 |
+| Scénario | lut iters/s | lut_par iters/s | Speedup |
+|---|---|---|---|
+| SC1 - 3j flop, 50k   |  4 717 000 | 14 706 000 | **×3.12** |
+| SC2 - 3j turn, 75k   |  6 303 000 | 20 270 000 | **×3.23** |
+| SC3 - 3j flop, 50k   |  4 386 000 | 14 286 000 | **×3.28** |
+| SC4 - 4j flop, 50k   |  2 924 000 | 10 204 000 | **×3.50** |
+| SC5 - 3j flop, 30k   |  4 286 000 | 11 111 000 | **×2.55** |
+| SC6 - 2j flop, 500k  | 11 682 000 | 28 902 000 | **×2.47** |
 
-##### Analyse du User time (threads actifs effectifs)
+##### Analyse du User time (threads actifs effectifs) — Setup A
 
 | Scénario | Wall time | User time | Threads effectifs |
 |---|---|---|---|
@@ -1010,6 +998,30 @@ Mesures sur **Setup A** (AMD Ryzen 5 5600H, 6C/12T, Arch Linux, rustc 1.98.1).
 | SC4 | 4.9 ms | 27.3 ms | ~5.6 |
 | SC5 | 2.7 ms | 11.6 ms | ~4.3 |
 | SC6 | 17.3 ms | 62.8 ms | ~3.6 |
+
+Mesures sur **Setup B** (AMD Ryzen 7 7735U, 8C/16T, Windows 11, rustc 1.98.1), hyperfine, 100 runs warmup 10 pour SC1–SC5, 10 runs, warmup 3 pour SC6.
+
+| Scénario | lut iters/s | lut_par iters/s | Speedup |
+|---|---|---|---|
+| SC1 - 3j flop, 50k   | 1 766 800 | 2 604 200 | **×1.47** |
+| SC2 - 3j turn, 75k   | 2 443 500 | 3 846 200 | **×1.57** |
+| SC3 - 3j flop, 50k   | 1 694 900 | 2 463 100 | **×1.45** |
+| SC4 - 4j flop, 30k   | 797 900 | 1 470 600 | **×1.84** |
+| SC5 - 3j flop, 50k   | 2 252 300 | 2 857 100 | **×1.27** |
+| SC6 - 2j flop, 500k  | 6 775 100 | 15 723 300 | **×2.32** |
+
+##### Analyse du User time (threads actifs effectifs) — Setup B
+
+| Scénario | Wall time | User time | Threads effectifs |
+|---|---|---|---|
+| SC1 | 19.2 ms | 25.0 ms | ~1.3 |
+| SC2 | 19.5 ms | 29.8 ms | ~1.5 |
+| SC3 | 20.3 ms | 26.2 ms | ~1.3 |
+| SC4 | 20.4 ms | 31.6 ms | ~1.6 |
+| SC5 | 17.5 ms | 19.4 ms | ~1.1 |
+| SC6 | 31.8 ms | 75.0 ms | ~2.4 |
+
+**Pourquoi Setup B est nettement moins efficace que Setup A pour la parallélisation :** trois facteurs s'accumulent. D'abord, les workloads SC1–SC5 durent seulement ~20 ms wall time — trop court pour amortir le coût fixe de Rayon sur Windows (~2 ms de réveil/synchronisation du pool, contre ~0.3 ms sur Linux qui utilise des `futex` là où Windows utilise des primitives plus lourdes). Ensuite, le scheduler Windows découpe le temps CPU en tranches de 15 ms et ne migre pas agressivement les threads vers des cœurs libres : pour un burst de 20 ms, plusieurs threads se retrouvent sur des cœurs logiques partageant un même cœur physique (SMT), d'où le ratio User/Wall ≈ 1.1–1.6 au lieu des ~5.5 observés sur Setup A. Enfin, le plan d'alimentation Windows « Équilibré » laisse les cœurs inactifs monter en fréquence avec un délai de 5–10 ms — sur une tâche de 20 ms, une fraction du travail s'exécute à fréquence réduite.
 
 ##### Analyse
 
