@@ -385,12 +385,12 @@ Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows, rustc 1.98.1), hyperfine, 1
 
 | Scénario | naive iters/s | zero_alloc iters/s | Speedup |
 |---|---|---|---|
-| SC1 - 3 joueurs, flop, 50k | 90 900 | 204 000 | **×2.24** |
-| SC2 - 3 joueurs, turn, 75k | 109 000 | 342 000 | **×3.13** |
-| SC3 - 3 joueurs, flop, 50k | 84 000 | 195 000 | **×2.32** |
-| SC4 - 4 joueurs, flop, 50k | 61 300 | 130 200 | **×2.12** |
-| SC5 - 3 joueurs, flop, 30k | 88 000 | 182 600 | **×2.06** |
-| SC6 - 2 joueurs, flop, 500k | 138 000 | 336 300 | **×2.43** |
+| SC1 - 3 joueurs, flop, 50k | 44 400 | 200 400 | **×4.51** |
+| SC2 - 3 joueurs, turn, 75k | 46 100 | 338 400 | **×7.34** |
+| SC3 - 3 joueurs, flop, 50k | 42 000 | 194 300 | **×4.63** |
+| SC4 - 4 joueurs, flop, 30k | 18 600 | 78 100 | **×4.20** |
+| SC5 - 3 joueurs, flop, 50k | 73 900 | 298 200 | **×4.04** |
+| SC6 - 2 joueurs, flop, 500k | 64 400 | 339 900 | **×5.28** |
 
 ##### SC6 - mesure hyperfine détaillée
 
@@ -529,21 +529,21 @@ Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows, rustc 1.98.1), hyperfine 10
 
 ```
 Benchmark 1: naive sc6
-  Time (mean ± σ):      3.730 s ±  0.075 s    [User: 3.627 s, System: 0.041 s]
-  Range (min … max):    3.650 s …  3.856 s    10 runs
+  Time (mean ± σ):      7.761 s ±  0.167 s    [User: 7.603 s, System: 0.089 s]
+  Range (min … max):    7.518 s …  8.035 s    10 runs
  
 Benchmark 2: zero_alloc sc6
-  Time (mean ± σ):      1.490 s ±  0.047 s    [User: 1.439 s, System: 0.023 s]
-  Range (min … max):    1.439 s …  1.588 s    10 runs
+  Time (mean ± σ):      1.471 s ±  0.014 s    [User: 1.436 s, System: 0.019 s]
+  Range (min … max):    1.449 s …  1.493 s    10 runs
  
 Benchmark 3: sort_free sc6
-  Time (mean ± σ):      1.823 s ±  0.065 s    [User: 1.777 s, System: 0.028 s]
-  Range (min … max):    1.785 s …  1.998 s    10 runs
+  Time (mean ± σ):      1.840 s ±  0.024 s    [User: 1.788 s, System: 0.031 s]
+  Range (min … max):    1.807 s …  1.874 s    10 runs
  
 Summary
   zero_alloc sc6 ran
-    1.22 ± 0.06 times faster than sort_free sc6
-    2.50 ± 0.09 times faster than naive sc6
+    1.25 ± 0.02 times faster than sort_free sc6
+    5.28 ± 0.12 times faster than naive sc6
 ```
 
 ##### Analyse
@@ -660,12 +660,12 @@ Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows 11, rustc 1.98.1).
 
 | Scénario | zero_alloc iters/s | fisher iters/s | Speedup | n_needed |
 |---|---|---|---|---|
-| SC1 - 3j flop, 50k   | 204 695 | 221 088 | **×1.08** | 2 |
-| SC2 - 3j turn, 75k   | 328 575 | 380 480 | **×1.16** | 1 |
-| SC3 - 3j flop, 50k   | 196 878 | 183 696 | **×0.93** | 2 |
-| SC4 - 4j flop, 30k   | 130 607 | 133 002 | **×1.02** | 4 |
-| SC5 - 3j flop, 50k   | 195 439 | 206 482 | **×1.06** | 2 |
-| SC6 - 2j flop, 500k  | 290 877 | 333 140 | **×1.15** | 2 |
+| SC1 - 3j flop, 50k   | 200 400 | 207 700 | **×1.04** | 2 |
+| SC2 - 3j turn, 75k   | 338 400 | 363 500 | **×1.07** | 1 |
+| SC3 - 3j flop, 50k   | 194 300 | 200 100 | **×1.03** | 2 |
+| SC4 - 4j flop, 30k   | 78 100 | 79 600 | **×1.02** | 4 |
+| SC5 - 3j flop, 50k   | 298 200 | 304 100 | **×1.02** | 2 |
+| SC6 - 2j flop, 500k  | 339 900 | 359 500 | **×1.06** | 2 |
 
 ##### Analyse
 
@@ -750,22 +750,29 @@ Mesures sur **Setup A** (AMD Ryzen 5 5600H, Arch Linux, rustc 1.98.1).
 
 Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows 11, rustc 1.98.1).
 
-| Scénario | zero_alloc iters/s | eval7 iters/s | Speedup vs zero_alloc |
+| Scénario | fisher iters/s | eval7 iters/s | Speedup vs fisher |
 |---|---|---|---|
-| SC1 - 3j flop, 50k   | 206 615 | 3 907 899 | **×18.91** |
-| SC2 - 3j turn, 75k   | 239 778 | 3 143 191 | **×13.11** |
-| SC3 - 3j flop, 50k   | 161 711 | 3 253 154 | **×20.12** |
-| SC4 - 4j flop, 30k   | 123 346 | 1 868 349 | **×15.15** |
-| SC5 - 3j flop, 50k   | 175 539 | 3 320 604 | **×18.92** |
-| SC6 - 2j flop, 500k  | 309 986 | 4 821 392 | **×15.55** |
+| SC1 - 3j flop, 50k   | 200 400 | 1 766 800 | **×8.82** |
+| SC2 - 3j turn, 75k   | 338 400 | 2 443 500 | **×7.22** |
+| SC3 - 3j flop, 50k   | 194 300 | 1 694 900 | **×8.72** |
+| SC4 - 4j flop, 30k   | 78 100 | 797 900 | **×10.22** |
+| SC5 - 3j flop, 50k   | 298 200 | 2 252 300 | **×7.55** |
+| SC6 - 2j flop, 500k  | 339 900 | 4 492 400 | **×13.22** |
 
 ##### Progression itération par itération (SC1)
-
+Progression sur **Setup A**
 | Évaluateur | Optimisations cumulées | iters/s | Gain vs zero_alloc |
 |---|---|---|---|
 | `zero_alloc` | baseline | 287 900 | — |
 | `fisher` | + Partial Fisher-Yates | 309 600 | ×1.08 |
 | `eval7` | + Fisher + eval7 direct | 4 761 900 | **×16.54** |
+
+Progression sur **Setup B**
+| Évaluateur | Optimisations cumulées | iters/s | Gain vs zero_alloc |
+|---|---|---|---|
+| `zero_alloc` | baseline | 200 400 | — |
+| `fisher` | + Partial Fisher-Yates | 207 700 | ×1.04 |
+| `eval7` | + Fisher + eval7 direct | 1 766 800 | **×8.82** |
 
 ##### Analyse
 
@@ -889,6 +896,17 @@ Mesures sur **Setup A** (AMD Ryzen 5 5600H, Arch Linux, rustc 1.98.1), single-sh
 | SC4 - 4j flop, 50k   | 2 907 000 | // | < seuil → eval7_inline | ~×1.0 (bruit) |
 | SC5 - 3j flop, 30k   | 4 347 800 | // | < seuil → eval7_inline | ~×1.0 (bruit) |
 | SC6 - 2j flop, 500k  | 7 042 300 | 11 520 700 | ≥ seuil → LUT chaud   | **×1.64** |
+
+Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows 11, rustc 1.98.1), hyperfine, 100 runs warmup 10 pour SC1–SC5, 10 runs, warmup 3 pour SC6.
+
+| Scénario | eval7 iters/s | lut iters/s | Comportement | Ratio |
+|---|---|---|---|---|
+| SC1 - 3j flop, 50k   | 1 766 800 | // | < seuil → eval7_inline | ~×1.0 (bruit) |
+| SC2 - 3j turn, 75k   | 2 443 500 | // | < seuil → eval7_inline | ~×1.0 (bruit) |
+| SC3 - 3j flop, 50k   | 1 694 900 | // | < seuil → eval7_inline | ~×1.0 (bruit) |
+| SC4 - 4j flop, 30k   | 797 900 | // | < seuil → eval7_inline | ~×1.0 (bruit) |
+| SC5 - 3j flop, 50k   | 2 252 300 | // | < seuil → eval7_inline | ~×1.0 (bruit) |
+| SC6 - 2j flop, 500k  | 4 492 400 | 6 775 100 | ≥ seuil → LUT chaud   | **×1.51** |
 
 ##### Analyse
 
