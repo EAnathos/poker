@@ -45,11 +45,17 @@ bench SC EVAL="": build _mkdir-results
         --command-name "naive      {{SC}}" \
         --command-name "zero_alloc {{SC}}" \
         --command-name "sort_free  {{SC}}" \
+        --command-name "fisher  {{SC}}" \
+        --command-name "eval7  {{SC}}" \
+        --command-name "lut  {{SC}}" \
         --export-json {{RESULTS_DIR}}/{{SC}}.json \
         --export-markdown {{RESULTS_DIR}}/{{SC}}.md \
         '{{EXE}} {{SC}} naive' \
         '{{EXE}} {{SC}} zero_alloc' \
-        '{{EXE}} {{SC}} sort_free'
+        '{{EXE}} {{SC}} sort_free' \
+        '{{EXE}} {{SC}} fisher' \
+        '{{EXE}} {{SC}} eval7' \
+        '{{EXE}} {{SC}} lut'
     else
       hyperfine \
         --warmup $warmup --runs $runs --shell=none \
@@ -70,11 +76,17 @@ bench-all: build _mkdir-results
       --command-name "naive" \
       --command-name "zero_alloc" \
       --command-name "sort_free" \
+      --command-name "fisher" \
+      --command-name "eval7" \
+      --command-name "lut" \
       --export-json {{RESULTS_DIR}}/all.json \
       --export-markdown {{RESULTS_DIR}}/all.md \
       '{{EXE}} naive' \
       '{{EXE}} zero_alloc' \
-      '{{EXE}} sort_free'
+      '{{EXE}} sort_free' \
+      '{{EXE}} fisher' \
+      '{{EXE}} eval7' \
+      '{{EXE}} lut'
 
 # Flamegraph interactif via Firefox Profiler — just profile [sc6] [naive|zero_alloc|sort_free]
 profile SC="sc6" EVAL="sort_free": build

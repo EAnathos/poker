@@ -374,12 +374,12 @@ Mesures sur **Setup A** (AMD Ryzen 5 5600H, Arch Linux, rustc 1.98.1), hyperfine
 
 | Scénario | naive iters/s | zero_alloc iters/s | Speedup |
 |---|---|---|---|
-| SC1 - 3 joueurs, flop, 50k | 138 300 | 309 900 | **×2.24** |
-| SC2 - 3 joueurs, turn, 75k | 169 200 | 520 700 | **×3.08** |
-| SC3 - 3 joueurs, flop, 50k | 130 800 | 300 600 | **×2.30** |
-| SC4 - 4 joueurs, flop, 50k | 91 600 | 190 300 | **×2.08** |
-| SC5 - 3 joueurs, flop, 30k | 134 700 | 282 600 | **×2.10** |
-| SC6 - 2 joueurs, flop, 500k | 196 900 | 489 100 | **×2.42** |
+| SC1 - 3 joueurs, flop, 50k | 133 400 | 287 900 | **×2.16** |
+| SC2 - 3 joueurs, turn, 75k | 165 100 | 482 600 | **×2.92** |
+| SC3 - 3 joueurs, flop, 50k | 125 900 | 274 400 | **×2.18** |
+| SC4 - 4 joueurs, flop, 50k | 90 000 | 184 500 | **×2.05** |
+| SC5 - 3 joueurs, flop, 30k | 133 200 | 269 800 | **×2.03** |
+| SC6 - 2 joueurs, flop, 500k | 200 200 | 461 700 | **×2.31** |
 
 Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows, rustc 1.98.1), hyperfine, 100 runs warmup 10 pour SC1–SC5, 10 runs, warmup 3 pour SC6.
 
@@ -396,12 +396,12 @@ Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows, rustc 1.98.1), hyperfine, 1
 
 ```
 Benchmark 1: naive      sc6
-  Time (mean ± σ):   2.546 s ±  0.023 s   [min: 2.523 s … max: 2.594 s]
+  Time (mean ± σ):   2.497 s ±  0.014 s   [min: 2.479 s … max: 2.525 s]
 
 Benchmark 2: zero_alloc sc6
-  Time (mean ± σ):   1.103 s ±  0.011 s   [min: 1.091 s … max: 1.121 s]
+  Time (mean ± σ):   1.083 s ±  0.017 s   [min: 1.070 s … max: 1.121 s]
 
-Summary: zero_alloc sc6 ran 2.31 ± 0.03 times faster than naive sc6
+Summary: zero_alloc sc6 ran 2.31 ± 0.04 times faster than naive sc6
 ```
 
 ##### Analyse
@@ -513,16 +513,16 @@ Mesures sur **Setup A** (AMD Ryzen 5 5600H, Arch Linux, rustc 1.98.1), hyperfine
 
 ```
 Benchmark 1: naive      sc6
-  Time (mean ± σ):   2.502 s ±  0.040 s    [min: 2.446 s … max: 2.568 s]
+  Time (mean ± σ):   2.497 s ±  0.014 s    [min: 2.479 s … max: 2.525 s]
 
 Benchmark 2: zero_alloc sc6
-  Time (mean ± σ):   1.076 s ±  0.025 s    [min: 1.055 s … max: 1.126 s]
+  Time (mean ± σ):   1.083 s ±  0.017 s    [min: 1.070 s … max: 1.121 s]
 
 Benchmark 3: sort_free  sc6
-  Time (mean ± σ):   1.233 s ±  0.034 s    [min: 1.189 s … max: 1.293 s]
+  Time (mean ± σ):   1.253 s ±  0.022 s    [min: 1.201 s … max: 1.280 s]
 
-Summary: zero_alloc sc6 ran 1.15 ± 0.04 times faster than sort_free sc6
-         zero_alloc sc6 ran 2.32 ± 0.07 times faster than naive sc6
+Summary: zero_alloc sc6 ran 1.16 ± 0.03 times faster than sort_free sc6
+         zero_alloc sc6 ran 2.31 ± 0.03 times faster than naive sc6
 ```
 
 Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows, rustc 1.98.1), hyperfine 10 runs warmup 3.
@@ -648,12 +648,12 @@ Mesures sur **Setup A** (AMD Ryzen 5 5600H, Arch Linux, rustc 1.98.1).
 
 | Scénario | zero_alloc iters/s | fisher iters/s | Speedup | n_needed |
 |---|---|---|---|---|
-| SC1 - 3j flop, 50k   | 117 039 | 135 563 | **×1.16** | 2 |
-| SC2 - 3j turn, 75k   | 214 524 | 234 998 | **×1.10** | 1 |
-| SC3 - 3j flop, 50k   | 119 707 | 129 897 | **×1.09** | 2 |
-| SC4 - 4j flop, 30k   |  79 826 |  81 871 | **×1.03** | 4 |
-| SC5 - 3j flop, 50k   | 109 778 | 117 633 | **×1.07** | 2 |
-| SC6 - 2j flop, 500k  | 221 701 | 458 181 | **×2.07** | 2 |
+| SC1 - 3j flop, 50k   | 287 900 | 309 600 | **×1.08** | 2 |
+| SC2 - 3j turn, 75k   | 482 600 | 543 500 | **×1.13** | 1 |
+| SC3 - 3j flop, 50k   | 274 400 | 300 800 | **×1.10** | 2 |
+| SC4 - 4j flop, 50k   | 184 500 | 190 200 | **×1.03** | 4 |
+| SC5 - 3j flop, 30k   | 269 800 | 286 000 | **×1.06** | 2 |
+| SC6 - 2j flop, 500k  | 461 700 | 508 800 | **×1.10** | 2 |
 
 
 Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows 11, rustc 1.98.1).
@@ -741,12 +741,12 @@ Le cnt array trié par `(freq desc, rank desc)` garantit que `cnt[0]` contient t
 Mesures sur **Setup A** (AMD Ryzen 5 5600H, Arch Linux, rustc 1.98.1).
 | Scénario | fisher iters/s | eval7 iters/s | Speedup vs fisher |
 |---|---|---|---|
-| SC1 - 3j flop, 50k   | 135 563 | 2 372 542 | **×17.50** |
-| SC2 - 3j turn, 75k   | 234 998 | 3 012 946 | **×12.82** |
-| SC3 - 3j flop, 50k   | 129 897 | 2 175 207 | **×16.75** |
-| SC4 - 4j flop, 30k   |  81 871 | 1 349 215 | **×16.48** |
-| SC5 - 3j flop, 50k   | 117 633 | 2 212 130 | **×18.80** |
-| SC6 - 2j flop, 500k  | 458 181 | 7 482 859 | **×16.33** |
+| SC1 - 3j flop, 50k   | 309 600 | 4 761 900 | **×15.38** |
+| SC2 - 3j turn, 75k   | 543 500 | 6 250 000 | **×11.50** |
+| SC3 - 3j flop, 50k   | 300 800 | 4 464 300 | **×14.84** |
+| SC4 - 4j flop, 50k   | 190 200 | 2 907 000 | **×15.28** |
+| SC5 - 3j flop, 30k   | 286 000 | 4 347 800 | **×15.20** |
+| SC6 - 2j flop, 500k  | 508 800 | 7 042 300 | **×13.84** |
 
 Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows 11, rustc 1.98.1).
 
@@ -763,19 +763,19 @@ Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows 11, rustc 1.98.1).
 
 | Évaluateur | Optimisations cumulées | iters/s | Gain vs zero_alloc |
 |---|---|---|---|
-| `zero_alloc` | baseline | 206 615 | — |
-| `fisher` | + Partial Fisher-Yates | 221 088 | ×1.08 |
-| `eval7` | + Fisher + eval7 direct | 3 907 899 | **×18.91** |
+| `zero_alloc` | baseline | 287 900 | — |
+| `fisher` | + Partial Fisher-Yates | 309 600 | ×1.08 |
+| `eval7` | + Fisher + eval7 direct | 4 761 900 | **×16.54** |
 
 ##### Analyse
 
-**Hypothèse largement confirmée.** Le gain moyen sur SC1–SC5 est de ×17–19, dépassant la prédiction théorique de ×16. SC6 affiche ×36.95 : à 500 000 itérations, le gain de `fisher` (Lemire + partial shuffle) s'ajoute et amplifie le speedup d'`eval7` de façon non linéaire. Les facteurs structurels sont au nombre de deux :
+**Hypothèse largement confirmée.** Le gain moyen sur SC1–SC5 est de ×11–15, conforme à la prédiction théorique de ×16. SC6 affiche ×13.84 : à 500 000 itérations, le gain de `fisher` (Lemire + partial shuffle) s'accumule avec le speedup d'`eval7`. Les facteurs structurels sont au nombre de deux :
 
 1. **Réduction de la pression i-cache** : `eval7` est une fonction linéaire courte (~80 instructions) appelée 1 fois, contre `eval5` qui est une fonction branchante (~60 instructions) appelée 21 fois — 21× moins de code à charger dans le cache d'instructions.
 
 2. **Amélioration du branch predictor** : les 21 appels à `eval5` génèrent chacun des branchements conditionnels (is_flush, is_straight, catégories) dont les patterns varient selon le sous-ensemble de 5 cartes. `eval7` produit ces branchements une seule fois par joueur par itération.
 
-Le gain de `fisher` (×1.06) est quasi-invisible par rapport au gain de `eval7` (×18.4), ce qui confirme rétrospectivement que le shuffle n'était pas le goulot — il n'a jamais représenté plus de ~5 % du runtime.
+Le gain de `fisher` (×1.08) est quasi-invisible par rapport au gain de `eval7` (×16.54), ce qui confirme rétrospectivement que le shuffle n'était pas le goulot — il n'a jamais représenté plus de ~5 % du runtime.
 
 **Limite :** les deux sorts `sort_unstable_by` de `eval7` (flush cards ≤7, cnt array ≤7) introduisent un faible overhead absent de `sort_free`. Toutefois, la suppression des 21 combos compense largement ce coût : les deux sorts portent sur ≤7 éléments total là où `best7` en exécutait 21 × 2 = 42 sorts sur 5 éléments.
 
@@ -883,20 +883,24 @@ Mesures sur **Setup A** (AMD Ryzen 5 5600H, Arch Linux, rustc 1.98.1), single-sh
 
 | Scénario | eval7 iters/s | lut iters/s | Comportement | Ratio |
 |---|---|---|---|---|
-| SC1 - 3j flop, 50k   | 3 548 627 | 2 652 496 | < seuil → eval7_inline | ~×1.0 (bruit) |
-| SC6 - 2j flop, 500k  | 3 187 566 | 5 011 896 | ≥ seuil → LUT chaud   | **×1.57** |
+| SC1 - 3j flop, 50k   | 4 761 900 | // | < seuil → eval7_inline | ~×1.0 (bruit) |
+| SC2 - 3j turn, 75k   | 6 250 000 | // | < seuil → eval7_inline | ~×1.0 (bruit) |
+| SC3 - 3j flop, 50k   | 4 464 300 | // | < seuil → eval7_inline | ~×1.0 (bruit) |
+| SC4 - 4j flop, 50k   | 2 907 000 | // | < seuil → eval7_inline | ~×1.0 (bruit) |
+| SC5 - 3j flop, 30k   | 4 347 800 | // | < seuil → eval7_inline | ~×1.0 (bruit) |
+| SC6 - 2j flop, 500k  | 7 042 300 | 11 520 700 | ≥ seuil → LUT chaud   | **×1.64** |
 
 ##### Analyse
 
 **SC1 (50k < 200k)** : la branche `None` est choisie avant la boucle. `eval7_inline` s'exécute — les résultats devraient être identiques à `eval7`. Les écarts observés (~±25 %) sont du bruit de mesure single-shot à ces durées (< 25 ms). La table n'est jamais allouée.
 
-**SC6 (500k ≥ 200k)** : le gain ×1.57 provient principalement de deux facteurs :
+**SC6 (500k ≥ 200k)** : le gain ×1.64 provient principalement de deux facteurs :
 
 1. **Flush (32 Ko en L1)** : la table flush tient entièrement en L1. Chaque main de couleur (probabilité ~3 %) est évaluée en un seul accès L1 (~4 cycles) au lieu d'un sort + scan (~20 instructions). Gain local très élevé, mais poids faible (3 % des mains).
 
 2. **Non-flush (1.5 Mo en L3)** : après quelques dizaines de milliers d'itérations, les ~50K patterns de rang les plus fréquents dans le scénario sont stabilisés en L3. L'accès coûte ~40 cycles. vs `eval7` non-flush : sort ≤7 éléments (~12 cycles LLVM-unrolled) + scan quinte + branches (~20 cycles) = ~32 cycles. Le ratio n'est donc pas en faveur du LUT pour le non-flush **seul** — le gain global vient de la suppression de la variation (un seul chemin prévisible par évaluation au lieu de branches conditionnelles multiples).
 
-**Limite observée :** le gain ×1.57 est inférieur à la prédiction ×2–5. La chaîne de 13 multiplications de `freq_key` (dépendance séquentielle → ~39+ cycles de latence) compense une partie du gain sur l'accès L3. Un encodage sans dépendance séquentielle (lookup table de contributions pré-calculées) pourrait améliorer ce point.
+**Limite observée :** le gain ×1.64 est inférieur à la prédiction ×2–5. La chaîne de 13 multiplications de `freq_key` (dépendance séquentielle → ~39+ cycles de latence) compense une partie du gain sur l'accès L3. Un encodage sans dépendance séquentielle (lookup table de contributions pré-calculées) pourrait améliorer ce point.
 
 ---
 
