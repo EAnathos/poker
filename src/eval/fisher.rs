@@ -19,15 +19,15 @@ use std::collections::HashSet;
 
 const MAX_PLAYERS: usize = 9;
 
-const HIGH_CARD: u8   = 0;
-const PAIR: u8        = 1;
-const TWO_PAIR: u8    = 2;
-const THREE_KIND: u8  = 3;
-const STRAIGHT: u8    = 4;
-const FLUSH: u8       = 5;
-const FULL_HOUSE: u8  = 6;
-const FOUR_KIND: u8   = 7;
-const STR_FLUSH: u8   = 8;
+const HIGH_CARD: u8 = 0;
+const PAIR: u8 = 1;
+const TWO_PAIR: u8 = 2;
+const THREE_KIND: u8 = 3;
+const STRAIGHT: u8 = 4;
+const FLUSH: u8 = 5;
+const FULL_HOUSE: u8 = 6;
+const FOUR_KIND: u8 = 7;
+const STR_FLUSH: u8 = 8;
 const ROYAL_FLUSH: u8 = 9;
 
 #[inline(always)]
@@ -87,14 +87,30 @@ fn eval5(cards: [Card; 5]) -> u32 {
     cnt[..nc].sort_unstable_by(|a, b| b.1.cmp(&a.1).then(b.0.cmp(&a.0)));
 
     let f0 = cnt[0].1;
-    if f0 == 4 { return pack(FOUR_KIND, cnt[0].0, cnt[1].0, 0, 0, 0); }
-    if f0 == 3 && cnt[1].1 == 2 { return pack(FULL_HOUSE, cnt[0].0, cnt[1].0, 0, 0, 0); }
-    if is_flush { return pack(FLUSH, v[0], v[1], v[2], v[3], v[4]); }
-    if is_straight { return pack(STRAIGHT, v[0], 0, 0, 0, 0); }
-    if is_wheel { return pack(STRAIGHT, 5, 0, 0, 0, 0); }
-    if f0 == 3 { return pack(THREE_KIND, cnt[0].0, cnt[1].0, cnt[2].0, 0, 0); }
-    if f0 == 2 && cnt[1].1 == 2 { return pack(TWO_PAIR, cnt[0].0, cnt[1].0, cnt[2].0, 0, 0); }
-    if f0 == 2 { return pack(PAIR, cnt[0].0, cnt[1].0, cnt[2].0, cnt[3].0, 0); }
+    if f0 == 4 {
+        return pack(FOUR_KIND, cnt[0].0, cnt[1].0, 0, 0, 0);
+    }
+    if f0 == 3 && cnt[1].1 == 2 {
+        return pack(FULL_HOUSE, cnt[0].0, cnt[1].0, 0, 0, 0);
+    }
+    if is_flush {
+        return pack(FLUSH, v[0], v[1], v[2], v[3], v[4]);
+    }
+    if is_straight {
+        return pack(STRAIGHT, v[0], 0, 0, 0, 0);
+    }
+    if is_wheel {
+        return pack(STRAIGHT, 5, 0, 0, 0, 0);
+    }
+    if f0 == 3 {
+        return pack(THREE_KIND, cnt[0].0, cnt[1].0, cnt[2].0, 0, 0);
+    }
+    if f0 == 2 && cnt[1].1 == 2 {
+        return pack(TWO_PAIR, cnt[0].0, cnt[1].0, cnt[2].0, 0, 0);
+    }
+    if f0 == 2 {
+        return pack(PAIR, cnt[0].0, cnt[1].0, cnt[2].0, cnt[3].0, 0);
+    }
     pack(HIGH_CARD, v[0], v[1], v[2], v[3], v[4])
 }
 
@@ -108,7 +124,9 @@ fn best7(seven: &[Card; 7]) -> u32 {
                 for i3 in i2 + 1..6 {
                     for i4 in i3 + 1..7 {
                         let v = eval5([seven[i0], seven[i1], seven[i2], seven[i3], seven[i4]]);
-                        if v > best { best = v; }
+                        if v > best {
+                            best = v;
+                        }
                     }
                 }
             }
@@ -142,7 +160,8 @@ impl Rng {
     fn partial_shuffle(&mut self, v: &mut [Card], k: usize) {
         let n = v.len();
         for i in 0..k {
-            let j = i + (self.next() as usize) % (n - i);
+            let range = (n - i) as u64;
+            let j = i + ((self.next() as u128 * range as u128) >> 64) as usize;
             v.swap(i, j);
         }
     }
@@ -162,11 +181,14 @@ fn simulate(
     iterations: u32,
 ) -> Vec<SimOdds> {
     let n = players.len();
-    if n == 0 { return vec![]; }
+    if n == 0 {
+        return vec![];
+    }
     debug_assert!(n <= MAX_PLAYERS);
 
     let known: HashSet<Card> = players
-        .iter().flat_map(|p| p.iter())
+        .iter()
+        .flat_map(|p| p.iter())
         .chain(board.iter())
         .filter_map(|c| *c)
         .collect();
@@ -179,27 +201,46 @@ fn simulate(
 
     // Cold path : calculé une seule fois.
     let n_needed: usize = board.iter().filter(|c| c.is_none()).count()
-        + players.iter().flat_map(|p| p.iter()).filter(|c| c.is_none()).count();
+        + players
+            .iter()
+            .flat_map(|p| p.iter())
+            .filter(|c| c.is_none())
+            .count();
 
-    let mut win_score  = vec![0.0f32; n];
+    let mut win_score = vec![0.0f32; n];
     let mut cat_counts = [[0u32; 10]; MAX_PLAYERS];
 
-    let dummy = Card { rank: Rank::Two, suit: Suit::Spades };
-    let mut hole  = [[dummy; 2]; MAX_PLAYERS];
+    let dummy = Card {
+        rank: Rank::Two,
+        suit: Suit::Spades,
+    };
+    let mut hole = [[dummy; 2]; MAX_PLAYERS];
     let mut seven = [dummy; 7];
     let mut ranks = [0u32; MAX_PLAYERS];
-    let mut rng   = Rng::new();
+    let mut rng = Rng::new();
 
     for _ in 0..iterations {
         rng.partial_shuffle(&mut base_deck, n_needed); // ← seule différence vs zero_alloc
         let mut cur = 0usize;
 
         for i in 0..n {
-            hole[i][0] = players[i][0].unwrap_or_else(|| { let c = base_deck[cur]; cur += 1; c });
-            hole[i][1] = players[i][1].unwrap_or_else(|| { let c = base_deck[cur]; cur += 1; c });
+            hole[i][0] = players[i][0].unwrap_or_else(|| {
+                let c = base_deck[cur];
+                cur += 1;
+                c
+            });
+            hole[i][1] = players[i][1].unwrap_or_else(|| {
+                let c = base_deck[cur];
+                cur += 1;
+                c
+            });
         }
         for k in 0..5 {
-            seven[k + 2] = board[k].unwrap_or_else(|| { let c = base_deck[cur]; cur += 1; c });
+            seven[k + 2] = board[k].unwrap_or_else(|| {
+                let c = base_deck[cur];
+                cur += 1;
+                c
+            });
         }
 
         for i in 0..n {
@@ -209,10 +250,12 @@ fn simulate(
         }
 
         let best = ranks[..n].iter().copied().max().unwrap_or(0);
-        let nw   = ranks[..n].iter().filter(|&&r| r == best).count() as u32;
+        let nw = ranks[..n].iter().filter(|&&r| r == best).count() as u32;
         let share = 1.0 / nw as f32;
         for i in 0..n {
-            if ranks[i] == best { win_score[i] += share; }
+            if ranks[i] == best {
+                win_score[i] += share;
+            }
         }
         for i in 0..n {
             cat_counts[i][(ranks[i] >> 20) as usize] += 1;
@@ -224,17 +267,17 @@ fn simulate(
         .map(|i| {
             let cc = &cat_counts[i];
             SimOdds {
-                win:        win_score[i] / total,
-                high_card:  cc[HIGH_CARD   as usize] as f32 / total,
-                pair:       cc[PAIR        as usize] as f32 / total,
-                two_pair:   cc[TWO_PAIR    as usize] as f32 / total,
-                three_kind: cc[THREE_KIND  as usize] as f32 / total,
-                straight:   cc[STRAIGHT    as usize] as f32 / total,
-                flush:      cc[FLUSH       as usize] as f32 / total,
-                full_house: cc[FULL_HOUSE  as usize] as f32 / total,
-                four_kind:  cc[FOUR_KIND   as usize] as f32 / total,
-                str_flush:  cc[STR_FLUSH   as usize] as f32 / total,
-                roy_flush:  cc[ROYAL_FLUSH as usize] as f32 / total,
+                win: win_score[i] / total,
+                high_card: cc[HIGH_CARD as usize] as f32 / total,
+                pair: cc[PAIR as usize] as f32 / total,
+                two_pair: cc[TWO_PAIR as usize] as f32 / total,
+                three_kind: cc[THREE_KIND as usize] as f32 / total,
+                straight: cc[STRAIGHT as usize] as f32 / total,
+                flush: cc[FLUSH as usize] as f32 / total,
+                full_house: cc[FULL_HOUSE as usize] as f32 / total,
+                four_kind: cc[FOUR_KIND as usize] as f32 / total,
+                str_flush: cc[STR_FLUSH as usize] as f32 / total,
+                roy_flush: cc[ROYAL_FLUSH as usize] as f32 / total,
             }
         })
         .collect()

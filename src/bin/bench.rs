@@ -1,17 +1,9 @@
-use mimalloc::MiMalloc;
 use poker::card::{Card, Rank, Suit};
 use poker::eval::{
-    Condition, Evaluator,
-    eval7::Eval7Evaluator,
-    fisher::FisherEvaluator,
-    naive::NaiveEvaluator,
-    sort_free::SortFreeEvaluator,
-    zero_alloc::ZeroAllocEvaluator,
+    Condition, Evaluator, eval7::Eval7Evaluator, fisher::FisherEvaluator, naive::NaiveEvaluator,
+    sort_free::SortFreeEvaluator, zero_alloc::ZeroAllocEvaluator,
 };
 use std::time::Instant;
-
-#[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
 
 fn main() {
     let scenarios: &[(&str, Condition)] = &[
@@ -401,10 +393,10 @@ fn main() {
         for &eval_name in &evals {
             let ev: Box<dyn Evaluator> = match eval_name {
                 "zero_alloc" => Box::new(ZeroAllocEvaluator),
-                "sort_free"  => Box::new(SortFreeEvaluator),
-                "fisher"     => Box::new(FisherEvaluator),
-                "eval7"      => Box::new(Eval7Evaluator),
-                _            => Box::new(NaiveEvaluator),
+                "sort_free" => Box::new(SortFreeEvaluator),
+                "fisher" => Box::new(FisherEvaluator),
+                "eval7" => Box::new(Eval7Evaluator),
+                _ => Box::new(NaiveEvaluator),
             };
             let t = Instant::now();
             let results = ev.run(cond);

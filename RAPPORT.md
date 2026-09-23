@@ -23,7 +23,7 @@ Deux évaluateurs coexistent dans `src/eval/` :
 | `naive` | `src/eval/naive.rs` | Allocations heap (`Vec`) à chaque appel | Référence de correction |
 | `zero_alloc` | `src/eval/zero_alloc.rs` | Buffers stack, encodage `u32`, deux tris | Optimisation 1 |
 | `sort_free` | `src/eval/sort_free.rs` | Comme `zero_alloc`, sans aucun tri | Optimisation 2 (invalidée) |
-| `fisher` | `src/eval/fisher.rs` | `zero_alloc` + Partial Fisher-Yates | Optimisation 3 |
+| `fisher` | `src/eval/fisher.rs` | `zero_alloc` + Partial Fisher-Yates + Lemire range reduction | Optimisation 3 |
 | `eval7` | `src/eval/eval7.rs` | `fisher` + évaluation directe 7 cartes | Optimisation 4 |
 
 Le binaire `bench` (`src/bin/bench.rs`) orchestre les simulations et sert de point de mesure Hyperfine. Chaque exécution prend un scénario (`sc1`–`sc6`) et un évaluateur (`naive`, `zero_alloc`, `sort_free`, `fisher` ou `eval7`) en argument de ligne de commande.
@@ -595,7 +595,7 @@ cargo run --bin bench sc1 fisher
 Seule la fonction de shuffle est modifiée — `eval5` et `best7` sont identiques à `zero_alloc`.
 
 ```rust
-// Avant (zero_alloc) — O(|deck|) = O(44) swaps
+// Avant (zero_alloc) — O(|deck|) = O(44) swaps, modulo division
 fn shuffle(&mut self, v: &mut [Card]) {
     for i in (1..v.len()).rev() {
         let j = (self.next() as usize) % (i + 1);
@@ -603,15 +603,21 @@ fn shuffle(&mut self, v: &mut [Card]) {
     }
 }
 
-// Après (fisher) — O(n_needed) swaps, n_needed calculé une seule fois (cold path)
+// Après (fisher) — O(n_needed) swaps, Lemire range reduction (sans division)
 fn partial_shuffle(&mut self, v: &mut [Card], k: usize) {
     let n = v.len();
     for i in 0..k {
-        let j = i + (self.next() as usize) % (n - i);
+        let range = (n - i) as u64;
+        let j = i + ((self.next() as u128 * range as u128) >> 64) as usize;
         v.swap(i, j);
     }
 }
 ```
+
+Deux changements simultanés par rapport à `zero_alloc` :
+
+1. **Partial Fisher-Yates** — seuls les `k = n_needed` premiers indices sont randomisés au lieu du deck entier.
+2. **Lemire range reduction** — le `% (n - i)` (division entière, latence ~20–40 cycles) est remplacé par `(next_u64 as u128 * range as u128) >> 64` (multiplication 128-bit). La technique, publiée par Daniel Lemire en 2019, produit une distribution uniforme sans biais et sans division. Elle est reprise telle quelle dans `eval7.rs` qui partage la même struct `Rng`.
 
 `n_needed` est calculé une fois avant la boucle :
 
