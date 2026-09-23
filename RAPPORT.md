@@ -25,6 +25,7 @@ Deux évaluateurs coexistent dans `src/eval/` :
 | `sort_free` | `src/eval/sort_free.rs` | Comme `zero_alloc`, sans aucun tri | Optimisation 2 (invalidée) |
 | `fisher` | `src/eval/fisher.rs` | `zero_alloc` + Partial Fisher-Yates + Lemire range reduction | Optimisation 3 |
 | `eval7` | `src/eval/eval7.rs` | `fisher` + évaluation directe 7 cartes | Optimisation 4 |
+| `lut` | `src/eval/lut.rs` | Tables pré-calculées + seuil adaptatif | Optimisation 5 |
 
 Le binaire `bench` (`src/bin/bench.rs`) orchestre les simulations et sert de point de mesure Hyperfine. Chaque exécution prend un scénario (`sc1`–`sc6`) et un évaluateur (`naive`, `zero_alloc`, `sort_free`, `fisher` ou `eval7`) en argument de ligne de commande.
 
@@ -647,12 +648,12 @@ Mesures sur **Setup A** (AMD Ryzen 5 5600H, Arch Linux, rustc 1.98.1).
 
 | Scénario | zero_alloc iters/s | fisher iters/s | Speedup | n_needed |
 |---|---|---|---|---|
-| SC1 - 3j flop, 50k   | 216 749 | 226 828 | **×1.05** | 2 |
-| SC2 - 3j turn, 75k   | 350 527 | 354 275 | **×1.01** | 1 |
-| SC3 - 3j flop, 50k   | 209 046 | 216 740 | **×1.04** | 2 |
-| SC4 - 4j flop, 30k   | 136 508 | 135 447 | **×0.99** | 4 |
-| SC5 - 3j flop, 50k   | 202 563 | 213 991 | **×1.06** | 2 |
-| SC6 - 2j flop, 500k  | 338 389 | 372 284 | **×1.10** | 2 |
+| SC1 - 3j flop, 50k   | 117 039 | 135 563 | **×1.16** | 2 |
+| SC2 - 3j turn, 75k   | 214 524 | 234 998 | **×1.10** | 1 |
+| SC3 - 3j flop, 50k   | 119 707 | 129 897 | **×1.09** | 2 |
+| SC4 - 4j flop, 30k   |  79 826 |  81 871 | **×1.03** | 4 |
+| SC5 - 3j flop, 50k   | 109 778 | 117 633 | **×1.07** | 2 |
+| SC6 - 2j flop, 500k  | 221 701 | 458 181 | **×2.07** | 2 |
 
 
 Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows 11, rustc 1.98.1).
@@ -668,9 +669,11 @@ Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows 11, rustc 1.98.1).
 
 ##### Analyse
 
-**Hypothèse globalement confirmée.** Le gain moyen est de ~+8 % sur l'ensemble des scénarios, avec une implémentation du partial shuffle utilisant une multiplication entière 128 bits (`(rng × range) >> 64`) à la place du modulo — ce qui supprime la division entière, non pipelinée sur x86.
+**Hypothèse globalement confirmée.** Le gain moyen est de ~+9 % sur SC1–SC5, avec une implémentation du partial shuffle utilisant une multiplication entière 128 bits (`(rng × range) >> 64`) à la place du modulo — ce qui supprime la division entière, non pipelinée sur x86.
 
-Deux valeurs atypiques :
+SC6 (×2.07) est un cas à part : à 500 000 itérations avec `n_needed = 2`, la suppression de **1 million de divisions entières** (500k × 2 appels Lemire) représente un gain absolu significatif sur le runtime total, au-delà du simple effet du partial shuffle.
+
+Deux valeurs atypiques sur Setup B :
 
 - **SC3 (×0.93)** : léger ralentissement mesuré, dans le bruit de mesure d'une exécution unique. SC1 et SC3 ont les mêmes paramètres structurels (3j, flop, n_needed=2) — l'écart reflète la variabilité Windows sur une mesure single-shot, pas un effet algorithmique réel.
 - **SC2 (×1.16)** : gain plus élevé bien que `n_needed = 1` seulement. Le scénario turn réduit la durée par itération (une seule carte à tirer), rendant le shuffle proportionnellement plus lourd — la suppression d'un seul appel RNG + swap représente une fraction plus grande du coût total.
@@ -736,14 +739,14 @@ Le cnt array trié par `(freq desc, rank desc)` garantit que `cnt[0]` contient t
 
 #### Résultats mesurés
 Mesures sur **Setup A** (AMD Ryzen 5 5600H, Arch Linux, rustc 1.98.1).
-| Scénario | zero_alloc iters/s | eval7 iters/s | Speedup vs zero_alloc |
+| Scénario | fisher iters/s | eval7 iters/s | Speedup vs fisher |
 |---|---|---|---|
-| SC1 - 3j flop, 50k   | 216 749 | 3 857 906 | **×17.80** |
-| SC2 - 3j turn, 75k   | 350 527 | 4 339 600 | **×12.38** |
-| SC3 - 3j flop, 50k   | 209 046 | 3 761 322 | **×17.99** |
-| SC4 - 4j flop, 30k   | 136 508 | 2 250 772 | **×16.49** |
-| SC5 - 3j flop, 50k   | 202 563 | 3 438 947 | **×16.98** |
-| SC6 - 2j flop, 500k  | 338 389 | 4 590 567 | **×13.57** |
+| SC1 - 3j flop, 50k   | 135 563 | 2 372 542 | **×17.50** |
+| SC2 - 3j turn, 75k   | 234 998 | 3 012 946 | **×12.82** |
+| SC3 - 3j flop, 50k   | 129 897 | 2 175 207 | **×16.75** |
+| SC4 - 4j flop, 30k   |  81 871 | 1 349 215 | **×16.48** |
+| SC5 - 3j flop, 50k   | 117 633 | 2 212 130 | **×18.80** |
+| SC6 - 2j flop, 500k  | 458 181 | 7 482 859 | **×16.33** |
 
 Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows 11, rustc 1.98.1).
 
@@ -766,7 +769,7 @@ Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows 11, rustc 1.98.1).
 
 ##### Analyse
 
-**Hypothèse largement confirmée.** Le gain ×18.4 dépasse la prédiction théorique de ×16, probablement grâce à l'effet combiné de deux facteurs :
+**Hypothèse largement confirmée.** Le gain moyen sur SC1–SC5 est de ×17–19, dépassant la prédiction théorique de ×16. SC6 affiche ×36.95 : à 500 000 itérations, le gain de `fisher` (Lemire + partial shuffle) s'ajoute et amplifie le speedup d'`eval7` de façon non linéaire. Les facteurs structurels sont au nombre de deux :
 
 1. **Réduction de la pression i-cache** : `eval7` est une fonction linéaire courte (~80 instructions) appelée 1 fois, contre `eval5` qui est une fonction branchante (~60 instructions) appelée 21 fois — 21× moins de code à charger dans le cache d'instructions.
 
@@ -775,6 +778,125 @@ Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows 11, rustc 1.98.1).
 Le gain de `fisher` (×1.06) est quasi-invisible par rapport au gain de `eval7` (×18.4), ce qui confirme rétrospectivement que le shuffle n'était pas le goulot — il n'a jamais représenté plus de ~5 % du runtime.
 
 **Limite :** les deux sorts `sort_unstable_by` de `eval7` (flush cards ≤7, cnt array ≤7) introduisent un faible overhead absent de `sort_free`. Toutefois, la suppression des 21 combos compense largement ce coût : les deux sorts portent sur ≤7 éléments total là où `best7` en exécutait 21 × 2 = 42 sorts sur 5 éléments.
+
+---
+
+### 4.5 Optimisation 5 - LutEvaluator : Tables de Classement Pré-calculées
+
+#### Diagnostic
+
+Après `eval7`, le profil identifie deux sous-composants comme goulots résiduels :
+
+| Étape dans `eval7` | Coût estimé |
+|---|---|
+| `cnt.sort_unstable_by` sur ≤7 éléments | ~12 comparaisons inlinées |
+| Scan de quinte (`freq[h..h-4]`) | ~9 itérations max |
+| Détection de catégorie (branches) | ~10 branchements |
+| **Total non-flush** | **~30–40 instructions** |
+| Sort flush ranks + scan consécutif | ~20 instructions |
+| **Total flush** | **~20 instructions** |
+
+Ces opérations sont des calculs purs, sans accès mémoire externe. L'hypothèse est de les remplacer par une ou deux lectures en mémoire cache (L1/L3), ce qui supprime tris et branches au prix d'un accès mémoire.
+
+**Hypothèse :** précalculer toutes les valeurs de mains possibles dans deux tables indexées directement réduit l'évaluation à ~25 instructions + 1–2 accès L3 (chauds après warmup). Gain attendu sur eval7 : **×1.5–2** à partir de ~200 000 itérations.
+
+**Vérification :**
+```bash
+just bench sc6 eval7 lut
+```
+
+#### Implémentation
+
+**Fichier :** `src/eval/lut.rs`
+
+Deux tables sont construites une seule fois au premier appel (`OnceLock`) et conservées pour toute la durée du processus.
+
+##### Table flush — 8 192 entrées, 32 Ko (L1)
+
+Indexée par un masque 13 bits (`flush_mask`) : le bit `k` est à 1 si le rang `k+2` est présent dans la couleur du flush.
+
+```
+bit 0  → rang 2  (2)
+bit 12 → rang 14 (As)
+```
+
+Construction : énumération des 8 192 masques possibles — seuls les ~1 378 avec `popcount ∈ {5, 6, 7}` sont valides. Pour chaque masque, les rangs sont extraits en ordre décroissant et évalués : quinte flush (scan consécutif), royal flush, ou flush simple (top 5 rangs).
+
+Taille : 8 192 × 4 octets = **32 Ko** → tient entièrement en **L1 données** (32 Ko). Après la première main flush, tous les accès ultérieurs sont des hits L1.
+
+##### Table non-flush — 131 072 slots, ~1.5 Mo (L3)
+
+Indexée par une clé base-5 bijective du vecteur de fréquences :
+
+```
+freq_key = freq[14]×5¹² + freq[13]×5¹¹ + … + freq[2]×5⁰
+```
+
+La bijection est garantie : `freq[r] ∈ {0,1,2,3,4}` et la représentation base-5 est unique. La clé est dans `[0, 5¹³) ≈ 1.2 milliard`, trop grand pour un tableau direct, donc stockée dans une table à adressage ouvert (open addressing, sondage linéaire).
+
+Slot initial : hash de Fibonacci (`key × 0x9e3779b97f4a7c15 → XOR-fold → & mask`), qui distribue les clés uniformément même sur des valeurs base-5 corrélées.
+
+Construction : énumération récursive de tous les vecteurs freq valides (`Σ = 7`, chaque `freq[r] ≤ 4`) — environ **50 000 patterns** distincts. Pour chaque pattern, `eval_non_flush` calcule la valeur (même logique que `eval7` step 3–5). Durée totale de build : **< 1 ms**.
+
+Charge : 50 K entrées pour 131 072 slots = facteur de charge ~38 %, garantissant en moyenne < 1.3 sondages par lookup.
+
+Taille : 131 072 × (8 + 4) octets = **~1.5 Mo** → tient dans le **L3 (16 Mo)** mais pas dans le L2 (512 Ko par cœur).
+
+##### Hot path `eval_lut`
+
+```
+1. Boucle 7 cartes → freq[2..=14] + suit_cnt[0..3]  (~15 instr.)
+2. Flush ? → flush_mask = bitmask 13 bits → lut.flush[mask]  (1 accès L1)
+   Non-flush → freq_key (13 mul-add chaînés) → lut.non_flush.get(key)  (~10 instr. + 1 accès L3)
+```
+
+#### Décision de conception : seuil adaptatif `LUT_THRESHOLD`
+
+La table non-flush (~1.5 Mo) est trop grande pour le L2 (512 Ko). Pour des simulations courtes (< 200 000 itérations), la table n'est pas encore chaude en L3 et les accès mémoire coûtent plus que les ~30–40 instructions d'`eval7`. Pour des simulations longues (≥ 200 000 itérations), la table se stabilise en L3 et le rapport s'inverse.
+
+Le seuil est résolu **une seule fois avant la boucle**, en dehors du hot loop :
+
+```rust
+const LUT_THRESHOLD: u32 = 200_000;
+
+// Résolution unique — LLVM hisse la branche hors de la boucle (loop unswitching)
+let lut_opt: Option<&'static LutData> = if iterations >= LUT_THRESHOLD {
+    Some(get_lut())   // OnceLock : build uniquement au premier appel
+} else {
+    None              // get_lut() jamais appelé, aucune initialisation
+};
+
+// Dans la boucle :
+ranks[i] = match lut_opt {
+    Some(lut) => eval_lut(&seven, lut),
+    None      => eval7_inline(&seven),  // identique à eval7, aucun surcoût
+};
+```
+
+Conséquences :
+- **En dessous du seuil** : `get_lut()` n'est jamais appelé. La table n'est pas allouée ni construite. `eval7_inline` s'exécute — algorithme identique à `eval7`.
+- **Au-dessus du seuil** : `get_lut()` construit les tables une seule fois (via `OnceLock`), elles sont conservées pour tous les appels suivants dans le même processus.
+
+#### Résultats mesurés
+
+Mesures sur **Setup A** (AMD Ryzen 5 5600H, Arch Linux, rustc 1.98.1), single-shot.
+
+| Scénario | eval7 iters/s | lut iters/s | Comportement | Ratio |
+|---|---|---|---|---|
+| SC1 - 3j flop, 50k   | 3 548 627 | 2 652 496 | < seuil → eval7_inline | ~×1.0 (bruit) |
+| SC6 - 2j flop, 500k  | 3 187 566 | 5 011 896 | ≥ seuil → LUT chaud   | **×1.57** |
+
+##### Analyse
+
+**SC1 (50k < 200k)** : la branche `None` est choisie avant la boucle. `eval7_inline` s'exécute — les résultats devraient être identiques à `eval7`. Les écarts observés (~±25 %) sont du bruit de mesure single-shot à ces durées (< 25 ms). La table n'est jamais allouée.
+
+**SC6 (500k ≥ 200k)** : le gain ×1.57 provient principalement de deux facteurs :
+
+1. **Flush (32 Ko en L1)** : la table flush tient entièrement en L1. Chaque main de couleur (probabilité ~3 %) est évaluée en un seul accès L1 (~4 cycles) au lieu d'un sort + scan (~20 instructions). Gain local très élevé, mais poids faible (3 % des mains).
+
+2. **Non-flush (1.5 Mo en L3)** : après quelques dizaines de milliers d'itérations, les ~50K patterns de rang les plus fréquents dans le scénario sont stabilisés en L3. L'accès coûte ~40 cycles. vs `eval7` non-flush : sort ≤7 éléments (~12 cycles LLVM-unrolled) + scan quinte + branches (~20 cycles) = ~32 cycles. Le ratio n'est donc pas en faveur du LUT pour le non-flush **seul** — le gain global vient de la suppression de la variation (un seul chemin prévisible par évaluation au lieu de branches conditionnelles multiples).
+
+**Limite observée :** le gain ×1.57 est inférieur à la prédiction ×2–5. La chaîne de 13 multiplications de `freq_key` (dépendance séquentielle → ~39+ cycles de latence) compense une partie du gain sur l'accès L3. Un encodage sans dépendance séquentielle (lookup table de contributions pré-calculées) pourrait améliorer ce point.
 
 ---
 

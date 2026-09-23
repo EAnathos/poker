@@ -1,7 +1,7 @@
 use poker::card::{Card, Rank, Suit};
 use poker::eval::{
-    Condition, Evaluator, eval7::Eval7Evaluator, fisher::FisherEvaluator, naive::NaiveEvaluator,
-    sort_free::SortFreeEvaluator, zero_alloc::ZeroAllocEvaluator,
+    Condition, Evaluator, eval7::Eval7Evaluator, fisher::FisherEvaluator, lut::LutEvaluator,
+    naive::NaiveEvaluator, sort_free::SortFreeEvaluator, zero_alloc::ZeroAllocEvaluator,
 };
 use std::time::Instant;
 
@@ -369,6 +369,11 @@ fn main() {
                     evals.push("eval7");
                 }
             }
+            "lut" => {
+                if !evals.contains(&"lut") {
+                    evals.push("lut");
+                }
+            }
             other => eprintln!("argument inconnu ignoré : {other}"),
         }
     }
@@ -377,6 +382,7 @@ fn main() {
         evals.push("zero_alloc");
         evals.push("fisher");
         evals.push("eval7");
+        evals.push("lut");
     }
 
     let to_run: Vec<usize> = match sc_filter {
@@ -396,6 +402,7 @@ fn main() {
                 "sort_free" => Box::new(SortFreeEvaluator),
                 "fisher" => Box::new(FisherEvaluator),
                 "eval7" => Box::new(Eval7Evaluator),
+                "lut" => Box::new(LutEvaluator),
                 _ => Box::new(NaiveEvaluator),
             };
             let t = Instant::now();

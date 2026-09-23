@@ -1,5 +1,6 @@
 pub mod eval7;
 pub mod fisher;
+pub mod lut;
 pub mod naive;
 pub mod sort_free;
 pub mod zero_alloc;
