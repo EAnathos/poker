@@ -313,6 +313,8 @@ Le nombre d'itérations est calibré de façon à ce que chaque scénario s'exé
 
 ### 4.1 Optimisation 1 - ZeroAllocEvaluator : Zéro Allocation sur le Hot Path
 
+> **Type : micro-optimisation.** Même algorithme, même structure d'appels — seules les structures de données changent : `Vec` heap remplacés par des tableaux stack et un `u32` encodé. Le gain vient de l'élimination de la pression allocateur, pas d'une réduction du nombre d'opérations logiques.
+
 #### Diagnostic
 
 Le profiling de la version naïve révèle une pression allocateur omniprésente sur le hot path. Pour chaque simulation, la fonction `evaluate_five` est appelée **21 fois** (C(7,5) combinaisons), et chaque appel effectue plusieurs allocations heap :
@@ -444,6 +446,8 @@ just bench sc6 zero_alloc sort_free
 ---
 
 ### 4.2 Optimisation 2 - SortFreeEvaluator : Suppression des Tris
+
+> **Type : micro-optimisation (invalidée).** Même algorithme `zero_alloc`, même nombre d'appels à `eval5` — seul le tri interne est remplacé par un scan de fréquences. L'optimisation opère à l'intérieur d'une fonction feuille sans toucher à l'architecture d'appel.
 
 #### Diagnostic
 
@@ -578,6 +582,8 @@ Optimiser `eval5` avec `sort_free` revenait à rendre plus rapide chacun des 21 
 
 ### 4.3 Optimisation 3 - FisherEvaluator : Partial Fisher-Yates sur le Shuffle
 
+> **Type : micro-optimisation.** La boucle de simulation reste identique ; seule la primitive de shuffle est affinée — O(n_needed) swaps au lieu de O(|deck|) et suppression de la division entière par multiplication 128-bit (Lemire). Gain plafonné par la part du shuffle dans le runtime total (~5 %).
+
 #### Diagnostic
 
 Le profil samply de `zero_alloc` (section 4.1) indique que le shuffle représente une fraction modeste mais mesurable du runtime :
@@ -686,6 +692,8 @@ Le goulot dominant reste `best7` + 21 appels à `eval5`, non modifié dans cette
 
 ### 4.4 Optimisation 4 - Eval7Evaluator : Évaluation Directe 7 Cartes
 
+> **Type : macro-optimisation.** L'architecture d'appel est restructurée : `best7` (21 × `eval5`) est supprimé et remplacé par `eval7` (1 passe directe sur 7 cartes). Ce n'est pas une amélioration d'implémentation mais un changement d'algorithme — le nombre d'évaluations par itération passe de 21 à 1, d'où le facteur ×8–13 observé, bien supérieur à tout gain micro possible.
+
 #### Diagnostic
 
 Après `fisher`, le profil identifie `best7` + ses 21 appels à `eval5` comme le goulot absolu (~90 % du runtime). Le problème structurel est l'énumération des C(7,5) = 21 combinaisons :
@@ -789,6 +797,8 @@ Le gain de `fisher` (×1.08) est quasi-invisible par rapport au gain de `eval7` 
 ---
 
 ### 4.5 Optimisation 5 - LutEvaluator : Tables de Classement Pré-calculées
+
+> **Type : macro-optimisation.** L'approche passe du **calcul** à la **consultation mémoire** : au lieu d'évaluer chaque main à la volée (tris, scan, branches), toutes les valeurs possibles sont précalculées une fois et indexées. C'est un changement de paradigme algorithmique conditionnel au volume d'itérations (seuil 200 000) et à la taille des tables en cache.
 
 #### Diagnostic
 
@@ -923,6 +933,8 @@ Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows 11, rustc 1.98.1), hyperfine
 ---
 
 ### 4.6 Optimisation 6 - LutParEvaluator : Parallélisation Monte Carlo via Rayon
+
+> **Type : macro-optimisation.** La structure séquentielle de la boucle Monte Carlo est remplacée par une exécution parallèle sur tous les cœurs disponibles via Rayon. Ce n'est pas un raffinement d'une opération existante mais une réorganisation du modèle d'exécution : chaque thread traite un sous-ensemble d'itérations indépendantes.
 
 #### Diagnostic
 
