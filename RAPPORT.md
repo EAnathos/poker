@@ -565,6 +565,14 @@ La loi d'Amdahl suppose que la portion à optimiser disparaît sans coût de rem
 
 **Conclusion :** la portion à 30 % dans le profil reflète le coût absolu des tris, non leur coût marginal par rapport à une alternative. Supprimer un tri sur 5 éléments sans alternative plus économique déplace le coût, pas l'élimine.
 
+#### Recadrage rétrospectif — le vrai hotpath
+
+L'optimisation `sort_free` révèle une erreur d'analyse plus profonde : toute l'attention portée à `eval5` — son tri, sa table de fréquences, ses branches — ciblait la mauvaise variable. Le profil samply montrait bien `eval5` à 50 % du runtime, mais ce chiffre est trompeur : `eval5` est appelée **21 fois par joueur par itération** (C(7,5) combinaisons via `best7`). Le coût n'était pas *comment* `eval5` s'exécutait, mais *combien de fois* elle était invoquée.
+
+Optimiser `eval5` avec `sort_free` revenait à rendre plus rapide chacun des 21 allers-retours — sans jamais questionner si les 21 voyages étaient nécessaires. Le vrai levier n'était pas l'implémentation de l'évaluateur 5 cartes, mais son architecture d'appel : remplacer l'énumération combinatoire par une évaluation directe sur 7 cartes (`eval7`, section 4.4).
+
+**Enseignement :** un profil de flamegraph indique où le temps est dépensé, pas pourquoi il l'est. Identifier le hotpath correct requiert de comprendre la structure algorithmique complète — ici, que `eval5` est un nœud feuille appelé 21× en boucle, et que c'est le nombre d'appels, non leur coût unitaire, qui constitue le vrai goulot.
+
 ---
 
 ### 4.3 Optimisation 3 - FisherEvaluator : Partial Fisher-Yates sur le Shuffle
