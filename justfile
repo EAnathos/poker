@@ -31,11 +31,13 @@ _mkdir-results:
 
 # ── Benchmarks ────────────────────────────────────────────────────────────────
 
-# Benchmark d'un scénario — just bench sc1 [naive|zero_alloc|sort_free]
-# Sans évaluateur : compare les trois. Avec : un seul.
+# Benchmark d'un scénario
+# just bench sc1                → tous les évaluateurs
+# just bench sc1 lut            → un seul évaluateur
+# just bench sc1 lut lut_par    → deux évaluateurs en comparaison
 # SC6 (500k iters) : warmup 3, runs 10 — autres : warmup 10, runs 100
 [unix]
-bench SC EVAL="": build _mkdir-results
+bench SC EVAL="" EVAL2="": build _mkdir-results
     #!/usr/bin/env bash
     set -e
     if [ "{{SC}}" = "sc6" ]; then warmup=3; runs=10; else warmup=10; runs=100; fi
@@ -48,6 +50,7 @@ bench SC EVAL="": build _mkdir-results
         --command-name "fisher  {{SC}}" \
         --command-name "eval7  {{SC}}" \
         --command-name "lut  {{SC}}" \
+        --command-name "lut_par  {{SC}}" \
         --export-json {{RESULTS_DIR}}/{{SC}}.json \
         --export-markdown {{RESULTS_DIR}}/{{SC}}.md \
         '{{EXE}} {{SC}} naive' \
@@ -55,18 +58,28 @@ bench SC EVAL="": build _mkdir-results
         '{{EXE}} {{SC}} sort_free' \
         '{{EXE}} {{SC}} fisher' \
         '{{EXE}} {{SC}} eval7' \
-        '{{EXE}} {{SC}} lut'
-    else
+        '{{EXE}} {{SC}} lut' \
+        '{{EXE}} {{SC}} lut_par'
+    elif [ -z "{{EVAL2}}" ]; then
       hyperfine \
         --warmup $warmup --runs $runs --shell=none \
         --command-name "{{EVAL}} {{SC}}" \
         --export-json {{RESULTS_DIR}}/{{SC}}_{{EVAL}}.json \
         --export-markdown {{RESULTS_DIR}}/{{SC}}_{{EVAL}}.md \
         '{{EXE}} {{SC}} {{EVAL}}'
+    else
+      hyperfine \
+        --warmup $warmup --runs $runs --shell=none \
+        --command-name "{{EVAL}}  {{SC}}" \
+        --command-name "{{EVAL2}}  {{SC}}" \
+        --export-json {{RESULTS_DIR}}/{{SC}}_{{EVAL}}_{{EVAL2}}.json \
+        --export-markdown {{RESULTS_DIR}}/{{SC}}_{{EVAL}}_{{EVAL2}}.md \
+        '{{EXE}} {{SC}} {{EVAL}}' \
+        '{{EXE}} {{SC}} {{EVAL2}}'
     fi
 
 [windows]
-bench SC EVAL="": build _mkdir-results
+bench SC EVAL="" EVAL2="": build _mkdir-results
     hyperfine --warmup {{ if SC == "sc6" { "3" } else { "10" } }} --runs {{ if SC == "sc6" { "10" } else { "100" } }} --shell=none {{ if EVAL == "" { '--command-name "naive ' + SC + '" --command-name "zero_alloc ' + SC + '" --command-name "sort_free ' + SC + '" "' + EXE + ' ' + SC + ' naive" "' + EXE + ' ' + SC + ' zero_alloc" "' + EXE + ' ' + SC + ' sort_free" --export-json "' + RESULTS_DIR + '/' + SC + '.json" --export-markdown "' + RESULTS_DIR + '/' + SC + '.md"' } else { '--command-name "' + EVAL + ' ' + SC + '" "' + EXE + ' ' + SC + ' ' + EVAL + '" --export-json "' + RESULTS_DIR + '/' + SC + '_' + EVAL + '.json" --export-markdown "' + RESULTS_DIR + '/' + SC + '_' + EVAL + '.md"' } }}
 
 # Compare naive vs zero_alloc vs sort_free sur l'ensemble SC1–SC6

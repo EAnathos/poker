@@ -204,7 +204,7 @@ fn build_flush_table() -> Vec<u32> {
     let mut table = vec![0u32; 8192];
     for mask in 0u16..8192 {
         let count = mask.count_ones();
-        if count < 5 || count > 7 {
+        if !(5..=7).contains(&count) {
             continue;
         }
         let mut ranks = [0u8; 7];
@@ -248,14 +248,14 @@ fn enumerate_freq(rank: usize, remaining: u8, freq: &mut [u8; 15], table: &mut N
 
 // ── Données LUT globales ──────────────────────────────────────────────────────
 
-struct LutData {
+pub(crate) struct LutData {
     flush: Vec<u32>,          // 8 192 entrées, 32 Ko
     non_flush: NonFlushTable, // 131 072 slots, ~1.5 Mo
 }
 
 static LUT: OnceLock<LutData> = OnceLock::new();
 
-fn get_lut() -> &'static LutData {
+pub(crate) fn get_lut() -> &'static LutData {
     LUT.get_or_init(|| LutData {
         flush: build_flush_table(),
         non_flush: build_non_flush_table(),
@@ -267,12 +267,12 @@ fn get_lut() -> &'static LutData {
 // En dessous de LUT_THRESHOLD itérations, la table non-flush (~1.5 Mo) n'est
 // pas encore chaude en L3 : les accès mémoire coûtent plus que les ~80 instr.
 // d'eval7. Au-delà, la table est stable en L3 et le gain se matérialise.
-const LUT_THRESHOLD: u32 = 200_000;
+pub(crate) const LUT_THRESHOLD: u32 = 200_000;
 
 // ── Fallback eval7 direct (hot path, table froide) ───────────────────────────
 
 #[inline(always)]
-fn eval7_inline(seven: &[Card; 7]) -> u32 {
+pub(crate) fn eval7_inline(seven: &[Card; 7]) -> u32 {
     let mut freq = [0u8; 15];
     let mut suit_cnt = [0u8; 4];
     for c in seven {
@@ -378,7 +378,7 @@ fn eval7_inline(seven: &[Card; 7]) -> u32 {
 // ── Évaluation hot path (LUT) ────────────────────────────────────────────────
 
 #[inline(always)]
-fn eval_lut(seven: &[Card; 7], lut: &LutData) -> u32 {
+pub(crate) fn eval_lut(seven: &[Card; 7], lut: &LutData) -> u32 {
     let mut freq = [0u8; 15];
     let mut suit_cnt = [0u8; 4];
     for c in seven {

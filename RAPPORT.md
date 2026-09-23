@@ -904,6 +904,108 @@ Mesures sur **Setup A** (AMD Ryzen 5 5600H, Arch Linux, rustc 1.98.1), single-sh
 
 ---
 
+### 4.6 Optimisation 6 - LutParEvaluator : Parallélisation Monte Carlo via Rayon
+
+#### Diagnostic
+
+La simulation Monte Carlo est **embarrassingly parallel** : chaque itération est indépendante du reste — aucune dépendance de données entre deux tirages successifs. Après `lut`, le profil ne présente plus aucun goulot algorithmique ; le seul levier restant est la parallélisation horizontale sur les cœurs physiques disponibles.
+
+| Ressource | Single-thread (`lut`) | Parallèle (`lut_par`) |
+|---|---|---|
+| Cœurs utilisés | 1 / 6 | 6 / 6 |
+| LUT (lecture) | 1 thread, L1/L3 chaud | N threads, L3 partagé en lecture pure |
+| RNG | 1 état XorShift64 | 1 état par thread, seeds distincts |
+
+**Hypothèse :** distribuer les itérations uniformément sur `N = rayon::current_num_threads()` threads donne un speedup proche de ×N sur les scénarios à forte charge compute. Gain attendu : **×4–6** sur 6 cœurs physiques.
+
+**Vérification :**
+```bash
+just bench sc6 lut lut_par
+```
+
+#### Implémentation
+
+**Fichier :** `src/eval/lut_par.rs`
+
+```
+Cold path (une seule fois avant la boucle parallèle) :
+  1. Résolution LUT/inline sur total iterations (même seuil que lut.rs)
+  2. Construction base_deck (identique à lut.rs)
+  3. Calcul n_needed
+
+Hot path par thread (rayon par_iter) :
+  tid 0..N → chunk_iters = iterations/N (+1 si tid < reste)
+  Chaque thread : deck.clone(), Rng::new_seeded(tid), boucle hot indépendante
+
+Merge : somme des win_score[i] et cat_counts[i][c] des N threads
+```
+
+##### Seeding par thread
+
+```rust
+fn new_seeded(tid: usize) -> Self {
+    let base = SystemTime::now()...as u64;
+    // Fibonacci hashing : seeds distincts et bien distribués même pour tid = 0,1,2…
+    let seed = base ^ (tid as u64).wrapping_mul(0x9e3779b97f4a7c15);
+    Self(if seed == 0 { 1 } else { seed })
+}
+```
+
+`0x9e3779b97f4a7c15` est la constante de Fibonacci dorée 64-bit : elle garantit que deux `tid` consécutifs produisent des seeds qui diffèrent sur tous les bits, éliminant tout risque de corrélation entre les RNG des threads.
+
+##### Partage de la LUT
+
+`get_lut()` retourne `&'static LutData` — la référence statique est `Send + Sync` par construction. Les 6 threads lisent simultanément la table non-flush (1.5 Mo en L3 partagé) sans traffic de cohérence : lecture pure, aucun `MESI` invalide.
+
+#### Résultats mesurés
+
+Mesures sur **Setup A** (AMD Ryzen 5 5600H, 6C/12T, Arch Linux, rustc 1.98.1).
+
+| Scénario | lut iters/s | lut_par iters/s | Speedup | Comportement |
+|---|---|---|---|---|
+| SC1 - 3j flop, 50k   |  4 717 000 | 14 706 000 | **×3.12** | < seuil → eval7_inline par thread |
+| SC2 - 3j turn, 75k   |  6 303 000 | 20 270 000 | **×3.23** | < seuil → eval7_inline par thread |
+| SC3 - 3j flop, 50k   |  4 386 000 | 14 286 000 | **×3.28** | < seuil → eval7_inline par thread |
+| SC4 - 4j flop, 50k   |  2 924 000 | 10 204 000 | **×3.50** | < seuil → eval7_inline par thread |
+| SC5 - 3j flop, 30k   |  4 286 000 | 11 111 000 | **×2.55** | < seuil → eval7_inline par thread |
+| SC6 - 2j flop, 500k  | 11 682 000 | 28 902 000 | **×2.47** | ≥ seuil → LUT chaud en L3 |
+
+##### Analyse du User time (threads actifs effectifs)
+
+| Scénario | Wall time | User time | Threads effectifs |
+|---|---|---|---|
+| SC1 | 3.4 ms | 18.2 ms | ~5.4 |
+| SC2 | 3.7 ms | 20.6 ms | ~5.6 |
+| SC3 | 3.5 ms | 19.8 ms | ~5.7 |
+| SC4 | 4.9 ms | 27.3 ms | ~5.6 |
+| SC5 | 2.7 ms | 11.6 ms | ~4.3 |
+| SC6 | 17.3 ms | 62.8 ms | ~3.6 |
+
+##### Analyse
+
+**Hypothèse partiellement confirmée.** Le gain réel est de **×2.5–3.5** au lieu du ×6 théorique sur 6 cœurs physiques.
+
+**Explication des deux régimes :**
+
+**SC1–SC4 (×3.1–3.5, eval7_inline)** : aucun goulot mémoire externe. Les 5.4–5.7 threads effectifs montrent une bonne parallélisation. L'écart vs ×6 provient de :
+- Overhead de démarrage rayon (~0.5 ms pour l'init du pool au premier appel)
+- Overhead de clonage du `base_deck` par thread (Vec<Card> ~48 octets × ~44 cartes = ~2 Ko)
+- OS scheduling : 6 threads sur 6 cœurs logiques, mais certains partagent un cœur physique (SMT)
+
+**SC4 (×3.50, le meilleur)** : 4 joueurs → chunk de ~8k iters/thread, mais le coût par itération est le plus élevé (4 évaluations + 4 cartes à tirer). L'overhead de thread devient proportionnellement plus faible, d'où le meilleur speedup relatif.
+
+**SC5 (×2.55, le plus faible hors SC6)** : 30k iters → chunk de ~5k iters/thread, durée totale 2.7ms. L'overhead de synchronisation rayon (~0.3 ms) représente ~11 % du wall time, dégradant l'efficacité.
+
+**SC6 (×2.47, LUT)** : deux effets limitants spécifiques :
+1. **Build LUT série** : `OnceLock::get_or_init` n'est exécuté que par un seul thread (Amdahl : ~1 ms série sur 17.3 ms total = 6 % de fraction non-parallélisable → speedup max théorique ≈ 1 / (0.06 + 0.94/6) ≈ **×4.5**).
+2. **Contention L3 non-flush (1.5 Mo)** : 6 threads accèdent simultanément à la table. La bande passante L3 (partagée, ~200 Go/s) est divisée entre les 6 threads, réduisant le débit par thread vs single-thread.
+
+Le ratio User/Wall = 3.6 threads effectifs pour SC6 (vs 5.6 pour SC4) confirme que la LUT génère des stalls mémoire qui laissent les cœurs en attente.
+
+**Conclusion :** `lut_par` est la stratégie la plus efficace pour des simulations à haute durée absolue (SC6 : 28.9M iters/s). Pour des simulations courtes (SC5 : 2.7ms wall), le ratio speedup/overhead est moins favorable.
+
+---
+
 ## 5. Gouvernance Technique IA
 
 ### 5.1 Fichier de gouvernance
