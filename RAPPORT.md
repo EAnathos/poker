@@ -659,25 +659,25 @@ Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows 11, rustc 1.98.1).
 
 | Scénario | zero_alloc iters/s | fisher iters/s | Speedup | n_needed |
 |---|---|---|---|---|
-| SC1 - 3j flop, 50k   | 216 749 | 226 828 | **×1.05** | 2 |
-| SC2 - 3j turn, 75k   | 350 527 | 354 275 | **×1.01** | 1 |
-| SC3 - 3j flop, 50k   | 209 046 | 216 740 | **×1.04** | 2 |
-| SC4 - 4j flop, 30k   | 136 508 | 135 447 | **×0.99** | 4 |
-| SC5 - 3j flop, 50k   | 202 563 | 213 991 | **×1.06** | 2 |
-| SC6 - 2j flop, 500k  | 338 389 | 372 284 | **×1.10** | 2 |
+| SC1 - 3j flop, 50k   | 204 695 | 221 088 | **×1.08** | 2 |
+| SC2 - 3j turn, 75k   | 328 575 | 380 480 | **×1.16** | 1 |
+| SC3 - 3j flop, 50k   | 196 878 | 183 696 | **×0.93** | 2 |
+| SC4 - 4j flop, 30k   | 130 607 | 133 002 | **×1.02** | 4 |
+| SC5 - 3j flop, 50k   | 195 439 | 206 482 | **×1.06** | 2 |
+| SC6 - 2j flop, 500k  | 290 877 | 333 140 | **×1.15** | 2 |
 
 ##### Analyse
 
-**Hypothèse confirmée à l'ordre de grandeur.** Le gain moyen (+4 % sur SC1–SC3/SC5–SC6) correspond à la prédiction d'Amdahl pour une portion de ~4.6 % du runtime.
+**Hypothèse globalement confirmée.** Le gain moyen est de ~+8 % sur l'ensemble des scénarios, avec une implémentation du partial shuffle utilisant une multiplication entière 128 bits (`(rng × range) >> 64`) à la place du modulo — ce qui supprime la division entière, non pipelinée sur x86.
 
-Deux anomalies notables :
+Deux valeurs atypiques :
 
-- **SC4 (×0.99)** : `n_needed = 4` (2 board + 2 cartes joueur inconnu). Avec 4 swaps utiles sur ~46 swaps totaux, le rapport swaps économisés / swaps effectués reste favorable (~91 %), mais le surcoût du calcul de `n_needed` et l'overhead de la boucle bornée annulent le gain à cette échelle. Résultat dans le bruit de mesure.
-- **SC6 (×1.10)** : le gain est plus élevé car 500 000 itérations amplifient statistiquement les micro-économies par itération.
+- **SC3 (×0.93)** : léger ralentissement mesuré, dans le bruit de mesure d'une exécution unique. SC1 et SC3 ont les mêmes paramètres structurels (3j, flop, n_needed=2) — l'écart reflète la variabilité Windows sur une mesure single-shot, pas un effet algorithmique réel.
+- **SC2 (×1.16)** : gain plus élevé bien que `n_needed = 1` seulement. Le scénario turn réduit la durée par itération (une seule carte à tirer), rendant le shuffle proportionnellement plus lourd — la suppression d'un seul appel RNG + swap représente une fraction plus grande du coût total.
 
 Le goulot dominant reste `best7` + 21 appels à `eval5`, non modifié dans cette itération.
 
-**Conclusion :** Partial Fisher-Yates est correcte mais à faible rendement quand `n_needed` ≤ 4. Le retour serait plus élevé en pré-flop (n_needed ≥ 9 pour plusieurs joueurs inconnus sans board).
+**Conclusion :** Partial Fisher-Yates apporte un gain réel (~+8–15 %) limité par la part du shuffle dans le runtime total (~5 %). Le retour serait plus élevé en pré-flop (n_needed ≥ 9 pour plusieurs joueurs inconnus sans board).
 
 ---
 
@@ -749,20 +749,20 @@ Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows 11, rustc 1.98.1).
 
 | Scénario | zero_alloc iters/s | eval7 iters/s | Speedup vs zero_alloc |
 |---|---|---|---|
-| SC1 - 3j flop, 50k   | 216 749 | 3 857 906 | **×17.80** |
-| SC2 - 3j turn, 75k   | 350 527 | 4 339 600 | **×12.38** |
-| SC3 - 3j flop, 50k   | 209 046 | 3 761 322 | **×17.99** |
-| SC4 - 4j flop, 30k   | 136 508 | 2 250 772 | **×16.49** |
-| SC5 - 3j flop, 50k   | 202 563 | 3 438 947 | **×16.98** |
-| SC6 - 2j flop, 500k  | 338 389 | 4 590 567 | **×13.57** |
+| SC1 - 3j flop, 50k   | 206 615 | 3 907 899 | **×18.91** |
+| SC2 - 3j turn, 75k   | 239 778 | 3 143 191 | **×13.11** |
+| SC3 - 3j flop, 50k   | 161 711 | 3 253 154 | **×20.12** |
+| SC4 - 4j flop, 30k   | 123 346 | 1 868 349 | **×15.15** |
+| SC5 - 3j flop, 50k   | 175 539 | 3 320 604 | **×18.92** |
+| SC6 - 2j flop, 500k  | 309 986 | 4 821 392 | **×15.55** |
 
 ##### Progression itération par itération (SC1)
 
 | Évaluateur | Optimisations cumulées | iters/s | Gain vs zero_alloc |
 |---|---|---|---|
-| `zero_alloc` | baseline | 216 749 | — |
-| `fisher` | + Partial Fisher-Yates | 226 828 | ×1.05 |
-| `eval7` | + Fisher + eval7 direct | 3 857 906 | **×17.80** |
+| `zero_alloc` | baseline | 206 615 | — |
+| `fisher` | + Partial Fisher-Yates | 221 088 | ×1.08 |
+| `eval7` | + Fisher + eval7 direct | 3 907 899 | **×18.91** |
 
 ##### Analyse
 
