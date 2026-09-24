@@ -51,6 +51,8 @@ Six scénarios couvrent quatre axes : nombre de joueurs (2–4), stade de jeu (f
 
 SC6 sert de référence de validation et d'amplificateur d'optimisation : son volume élevé rend visibles des gains noyés dans le bruit à 50 000 iters. → Descriptions détaillées des scénarios : [`docs/details-optimisations.md`](docs/details-optimisations.md#scénarios)
 
+<div style="page-break-after: always;"></div>
+
 ## 4. Optimisations
 
 ### 4.1 ZeroAllocEvaluator — Élimination des allocations heap
@@ -82,6 +84,8 @@ SC6 sert de référence de validation et d'amplificateur d'optimisation : son vo
 **Résultat SC6.** 461 700 → 508 800 iters/s — **×1,10**. Gain légèrement supérieur car la suppression de ~1 M de divisions entières à 500k iters est significative en absolu.
 
 **Analyse.** Confirmé. Le shuffle ne dépasse pas ~5 % du runtime : ce levier est plafonné. → Résultats SC1–SC5 : [`docs/details-optimisations.md`](docs/details-optimisations.md#43-fisher)
+
+<div style="page-break-after: always;"></div>
 
 ### 4.4 Eval7Evaluator — Évaluation directe 7 cartes
 
@@ -115,6 +119,8 @@ SC6 sert de référence de validation et d'amplificateur d'optimisation : son vo
 
 **Analyse.** SC6 limité par : (1) build LUT sériel (Amdahl, fraction non-parallélisable ~6 %) et (2) contention bande passante L3 (1,5 Mo partagé entre 6 threads → 3,6 threads effectifs vs 5,6 pour SC4 sans LUT). → Analyse User time par scénario : [`docs/details-optimisations.md`](docs/details-optimisations.md#46-lutpar)
 
+<div style="page-break-after: always;"></div>
+
 ### 4.7 Bilan — Synthèse des optimisations
 
 | Évaluateur | Iters/s | Speedup vs naive | Peak RSS | Type |
@@ -138,6 +144,8 @@ Le gain total **×147** se décompose : ×2,6 (micro) × ×13,7 (eval7/fisher) �
 #### lut vs lut_par — iters/s par scénario
 
 ![LUT vs LUT_PAR par scénario](assets/graph_scenarios.png)
+
+<div style="page-break-after: always;"></div>
 
 ## 5. Annexes
 
