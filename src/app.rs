@@ -362,7 +362,7 @@ impl PokerApp {
                                         };
 
                                         let bg = if is_active {
-                                            Color32::from_rgb(60, 55, 20)
+                                            Color32::from_rgb(255, 220, 50)
                                         } else if card_opt.is_some() {
                                             Color32::WHITE
                                         } else {
@@ -550,9 +550,11 @@ impl PokerApp {
                                 let btn = egui::Button::new(text)
                                     .min_size(Vec2::new(38.0, 26.0))
                                     .fill(if is_cur {
-                                        Color32::from_rgb(70, 60, 10)
+                                        Color32::from_rgb(255, 220, 50)
+                                    } else if is_used {
+                                        Color32::from_gray(210)
                                     } else {
-                                        Color32::from_gray(38)
+                                        Color32::WHITE
                                     });
 
                                 if ui.add_enabled(!is_used, btn).clicked() {
@@ -591,6 +593,18 @@ impl PokerApp {
         } else if close {
             self.picking = None;
         }
+    }
+}
+
+// ── Reset ─────────────────────────────────────────────────────────────────────
+
+impl PokerApp {
+    fn reset(&mut self) {
+        let n = self.players.len();
+        self.players = vec![Player::default(); n];
+        self.board = Board::default();
+        self.odds = vec![HandOdds::default(); n];
+        self.picking = None;
     }
 }
 
@@ -651,6 +665,16 @@ impl eframe::App for PokerApp {
                         .clicked()
                     {
                         self.run_simulation();
+                    }
+                    if ui
+                        .button(
+                            egui::RichText::new("Reset cartes")
+                                .size(13.0)
+                                .color(Color32::from_rgb(220, 80, 60)),
+                        )
+                        .clicked()
+                    {
+                        self.reset();
                     }
                 });
 

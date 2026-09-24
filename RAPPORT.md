@@ -1075,10 +1075,11 @@ Le ratio User/Wall = 3.6 threads effectifs pour SC6 (vs 5.6 pour SC4) confirme q
 
 Le gain total de **×147** est la composition de ×2,6 (micro) × ×13,7 (eval7 vs fisher) × ×1,6 (lut vs eval7) × ×2,5 (lut_par vs lut) ≈ ×147.
 
-#### Progression iters/s SC6 — naive vers lut_par
+#### Progression iters/s SC6 avec chaque optimisation cumulée
 ![Progression iters/s SC6 — naive vers lut_par](assets/graph_sc6.png)
-#### eval7 vs lut_par — iters/s par scénario
-![eval7 vs lut_par — iters/s par scénario](assets/graph_scenarios.png)
+
+#### lut vs lut_par — iters/s par scénario
+![lut vs lut_par — iters/s par scénario](assets/graph_scenarios.png)
 ---
 
 ## 5. Gouvernance Technique IA
