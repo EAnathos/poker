@@ -143,11 +143,11 @@ Le gain total **×147** se décompose : ×2,6 (micro) × ×13,7 (eval7/fisher) �
 
 #### Progression iters/s SC6
 
-<p align="center"><img src="assets/graph_sc6.png" alt="Progression iters/s SC6" width="600"/></p>
+<p align="center"><img src="assets/graph_sc6.png" alt="Progression iters/s SC6" width="500"/></p>
 
 #### lut vs lut_par — iters/s par scénario
 
-<p align="center"><img src="assets/graph_scenarios.png" alt="LUT vs LUT_PAR par scénario" width="600"/></p>
+<p align="center"><img src="assets/graph_scenarios.png" alt="LUT vs LUT_PAR par scénario" width="500"/></p>
 
 <div style="page-break-after: always;"></div>
 
