@@ -1,0 +1,9 @@
+{
+  "markdown-pdf.headerTemplate": "<div></div>",
+  "markdown-pdf.footerTemplate": "<div style=\"font-size:9px;text-align:center;width:100%;\"><span class='pageNumber'></span> / <span class='totalPages'></span></div>",
+  "markdown-pdf.margin.top": "15mm",
+  "markdown-pdf.margin.bottom": "15mm",
+  "markdown-pdf.margin.left": "18mm",
+  "markdown-pdf.margin.right": "18mm",
+  "markdown-pdf.styles": [".vscode/pdf.css"]
+}
