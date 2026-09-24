@@ -15,6 +15,9 @@ install-tools:
 build:
     cargo build --release --bin bench
 
+play:
+    cargo run --release --bin poker
+
 format:
     cargo fmt
 

@@ -329,6 +329,7 @@ impl PokerApp {
     fn show_player_panels(&mut self, ui: &mut egui::Ui) {
         let mut clicked: Option<CardSlot> = None;
         let mut add_player = false;
+        let mut remove_player: Option<usize> = None;
 
         egui::ScrollArea::horizontal()
             .id_salt("panels_scroll")
@@ -342,7 +343,20 @@ impl PokerApp {
                         ui.group(|ui| {
                             ui.set_min_width(140.0);
                             ui.vertical(|ui| {
-                                ui.label(egui::RichText::new(format!("P{}", idx + 1)).strong());
+                                ui.horizontal(|ui| {
+                                    ui.label(egui::RichText::new(format!("P{}", idx + 1)).strong());
+                                    if n > 2
+                                        && ui
+                                            .small_button(
+                                                egui::RichText::new("×")
+                                                    .color(Color32::from_rgb(200, 70, 60)),
+                                            )
+                                            .on_hover_text("Retirer ce joueur")
+                                            .clicked()
+                                    {
+                                        remove_player = Some(idx);
+                                    }
+                                });
 
                                 ui.horizontal(|ui| {
                                     for (c, &card_opt) in cards.iter().enumerate() {
@@ -404,6 +418,16 @@ impl PokerApp {
             self.players.push(Player::default());
             self.odds.push(HandOdds::default());
             self.picking = None;
+        }
+        if let Some(idx) = remove_player {
+            self.players.remove(idx);
+            self.odds.remove(idx);
+            // reset picking if it pointed to this player or any slot that shifted
+            self.picking = self.picking.and_then(|slot| match slot {
+                CardSlot::Player(p, _) if p == idx => None,
+                CardSlot::Player(p, c) if p > idx => Some(CardSlot::Player(p - 1, c)),
+                other => Some(other),
+            });
         }
     }
 }
