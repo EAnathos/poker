@@ -598,7 +598,7 @@ impl PokerApp {
 
 impl PokerApp {
     fn run_simulation(&mut self) {
-        use crate::eval::{Condition, Evaluator, naive::NaiveEvaluator};
+        use crate::eval::{Condition, Evaluator, lut_par::LutParEvaluator};
         let condition = Condition {
             players: self.players.iter().map(|p| p.cards).collect(),
             board: [
@@ -610,7 +610,7 @@ impl PokerApp {
             ],
             iterations: 10_000,
         };
-        let results = NaiveEvaluator.run(&condition);
+        let results = LutParEvaluator.run(&condition);
         self.odds = results
             .into_iter()
             .map(|r| HandOdds {
