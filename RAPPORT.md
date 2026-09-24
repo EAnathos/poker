@@ -1060,6 +1060,27 @@ Le ratio User/Wall = 3.6 threads effectifs pour SC6 (vs 5.6 pour SC4) confirme q
 
 ---
 
+### 4.7 Bilan — Synthèse des optimisations
+#### Tableau récapitulatif — SC6 (500 000 simulations, Setup A)
+
+| Évaluateur | Iters/s | Speedup vs naive | Type |
+|---|---|---|---|
+| `naive` | 196 900 | ×1,0 | référence |
+| `zero_alloc` | 489 100 | ×2,5 | micro |
+| `sort_free` | 399 000 | ×2,0 | micro (régression SC6) |
+| `fisher` | 508 800 | ×2,6 | micro |
+| `eval7` | 7 042 300 | ×35,8 | **macro** |
+| `lut` | 11 520 700 | ×58,5 | **macro** |
+| `lut_par` | 28 902 000 | ×146,8 | **macro** |
+
+Le gain total de **×147** est la composition de ×2,6 (micro) × ×13,7 (eval7 vs fisher) × ×1,6 (lut vs eval7) × ×2,5 (lut_par vs lut) ≈ ×147.
+
+#### Progression iters/s SC6 — naive vers lut_par
+![Progression iters/s SC6 — naive vers lut_par](assets/graph_sc6.png)
+#### eval7 vs lut_par — iters/s par scénario
+![eval7 vs lut_par — iters/s par scénario](assets/graph_scenarios.png)
+---
+
 ## 5. Gouvernance Technique IA
 
 ### 5.1 Fichier de gouvernance
