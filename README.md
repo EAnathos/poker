@@ -6,9 +6,11 @@
 
 ## 1. Présentation du projet
 
-![Interface graphique du simulateur](assets/gui.png)
+<img src="assets/gui.png" alt="Interface graphique du simulateur" width="600"/>
 
 Ce projet implémente un **moteur de calcul de probabilités Monte Carlo** pour le Texas Hold'em en Rust. Étant donné un ensemble de mains et un board partiel, le moteur estime l'équité de chaque joueur par simulation répétée (50 000 à 500 000 itérations selon le scénario). Rust a été choisi dans une optique de découverte : le langage était nouveau, et ce projet, à la croisée des simulations haute fréquence, de la gestion mémoire fine et d'une interface graphique, correspondait aux thématiques du cours sur la performance système.
+
+<div style="page-break-after: always;"></div>
 
 ## 2. Environnement & Métrologie
 
@@ -35,6 +37,8 @@ Des benchmarks complémentaires ont été réalisés sur Setup B (AMD Ryzen 7 77
 | **just** | Exécuteur de recettes — [`docs/commandes.md`](docs/commandes.md) |
 
 **Baseline Setup A — `naive` SC6 (500 000 itérations) :** moyenne 2,497 s, σ = 14 ms.
+
+<div style="page-break-after: always;"></div>
 
 ## 3. Scénarios de Benchmark
 
@@ -85,7 +89,7 @@ SC6 sert de référence de validation et d'amplificateur d'optimisation : son vo
 
 **Analyse.** Confirmé. Le shuffle ne dépasse pas ~5 % du runtime : ce levier est plafonné. → Résultats SC1–SC5 : [`docs/details-optimisations.md`](docs/details-optimisations.md#43-fisher)
 
-<div style="page-break-after: always;"></div>
+---
 
 ### 4.4 Eval7Evaluator — Évaluation directe 7 cartes
 
@@ -139,11 +143,11 @@ Le gain total **×147** se décompose : ×2,6 (micro) × ×13,7 (eval7/fisher) �
 
 #### Progression iters/s SC6
 
-![Progression iters/s SC6](assets/graph_sc6.png)
+<img src="assets/graph_sc6.png" alt="Progression iters/s SC6" width="600"/>
 
 #### lut vs lut_par — iters/s par scénario
 
-![LUT vs LUT_PAR par scénario](assets/graph_scenarios.png)
+<img src="assets/graph_scenarios.png" alt="LUT vs LUT_PAR par scénario" width="600"/>
 
 <div style="page-break-after: always;"></div>
 
