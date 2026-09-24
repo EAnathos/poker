@@ -526,12 +526,6 @@ impl PokerApp {
                 egui::Grid::new("picker")
                     .spacing(Vec2::new(3.0, 3.0))
                     .show(ui, |ui| {
-                        ui.label("");
-                        for suit in Suit::ALL {
-                            ui.colored_label(suit.color(), suit.symbol());
-                        }
-                        ui.end_row();
-
                         for rank in Rank::ALL {
                             ui.label(egui::RichText::new(rank.label()).strong());
                             for suit in Suit::ALL {
