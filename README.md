@@ -1,6 +1,8 @@
 # Rapport d'Audit de Performance — Poker Monte Carlo
 
 > Moteur Monte Carlo Texas Hold'em en Rust — **×147 de gain** sur la baseline naïve via 6 optimisations incrémentales (zero-alloc, eval7, LUT, Rayon).
+>
+> [https://github.com/EAnathos/poker](https://github.com/EAnathos/poker)
 
 ## 1. Présentation du projet
 
