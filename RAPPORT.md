@@ -182,12 +182,15 @@ just stats results/baseline.json
 |----------|--------|
 | `just install-tools` | Installe hyperfine + samply via cargo-binstall |
 | `just build` | Compile le binaire `bench` en mode release |
+| `just play` | Lance l'interface graphique (GUI Texas Hold'em) |
 | `just format` | Formate le code (`cargo fmt`) |
 | `just lint` | Vérifie le code (`cargo clippy -D warnings`) |
 | `just bench sc1` … `just bench sc6` | Compare naive vs zero_alloc vs sort_free (100 runs / 10 runs pour sc6) |
 | `just bench-all` | Compare les trois évaluateurs sur l'ensemble SC1–SC6 (10 runs, warmup 3) |
 | `just profile [sc] [eval]` | Flamegraph samply → Firefox Profiler (défaut : sc6 sort_free) |
 | `just stats results/sc6.json` | Extrait moyenne/médiane/σ/min/max du JSON pour chaque évaluateur |
+| `just mem [sc]` | Pic de RAM (VmHWM) comparatif des 7 évaluateurs sur un scénario (défaut : sc6) |
+| `just mem [sc] [eval]` | Pic de RAM d'un évaluateur précis sur un scénario |
 
 La recette `bench` prend le scénario en argument (`just bench sc6`) et passe les trois commandes à Hyperfine, le comparatif est affiché nativement avec le ratio de vitesse.
 
@@ -930,6 +933,8 @@ Mesures sur **Setup B** (AMD Ryzen 7 7735U, Windows 11, rustc 1.98.1), hyperfine
 
 **Limite observée :** le gain ×1.64 est inférieur à la prédiction ×2–5. La chaîne de 13 multiplications de `freq_key` (dépendance séquentielle → ~39+ cycles de latence) compense une partie du gain sur l'accès L3. Un encodage sans dépendance séquentielle (lookup table de contributions pré-calculées) pourrait améliorer ce point.
 
+**Empreinte mémoire (Setup A, SC6) :** `lut` consomme **4,2 Mo** de RAM de pointe contre ~2,6 Mo pour les évaluateurs précédents, soit un surcoût de **+1,6 Mo** correspondant exactement à la somme des deux tables (flush 32 Ko + non-flush ~1,5 Mo). Ce coût est absent sur SC1–SC5 (< 200k itérations) : les tables ne sont jamais initialisées (`just mem sc1 lut` → 2,6 Mo).
+
 ---
 
 ### 4.6 Optimisation 6 - LutParEvaluator : Parallélisation Monte Carlo via Rayon
@@ -1063,15 +1068,21 @@ Le ratio User/Wall = 3.6 threads effectifs pour SC6 (vs 5.6 pour SC4) confirme q
 ### 4.7 Bilan — Synthèse des optimisations
 #### Tableau récapitulatif — SC6 (500 000 simulations, Setup A)
 
-| Évaluateur | Iters/s | Speedup vs naive | Type |
-|---|---|---|---|
-| `naive` | 196 900 | ×1,0 | référence |
-| `zero_alloc` | 489 100 | ×2,5 | micro |
-| `sort_free` | 399 000 | ×2,0 | micro (régression SC6) |
-| `fisher` | 508 800 | ×2,6 | micro |
-| `eval7` | 7 042 300 | ×35,8 | **macro** |
-| `lut` | 11 520 700 | ×58,5 | **macro** |
-| `lut_par` | 28 902 000 | ×146,8 | **macro** |
+| Évaluateur | Iters/s | Speedup vs naive | Peak RSS | Type |
+|---|---|---|---|---|
+| `naive` | 196 900 | ×1,0 | 2,6 Mo | référence |
+| `zero_alloc` | 489 100 | ×2,5 | 2,6 Mo | micro |
+| `sort_free` | 399 000 | ×2,0 | 2,6 Mo | micro (régression SC6) |
+| `fisher` | 508 800 | ×2,6 | 2,6 Mo | micro |
+| `eval7` | 7 042 300 | ×35,8 | 2,6 Mo | **macro** |
+| `lut` | 11 520 700 | ×58,5 | 4,2 Mo | **macro** |
+| `lut_par` | 28 902 000 | ×146,8 | 4,4 Mo | **macro** |
+
+> **Lecture RAM :** naive → eval7 restent tous à ~2,6 Mo (binaire + stack + deck). `lut` ajoute **+1,6 Mo** (table flush 32 Ko en L1 + table non-flush ~1,5 Mo en L3). `lut_par` ajoute encore **+0,2 Mo** pour les stacks des threads Rayon. Ces valeurs sont mesurées via `VmHWM` dans `/proc/self/status` (`just mem sc6 <eval>`).
+>
+> Sur SC1 (50k < 200k) où le seuil LUT n'est pas atteint, `lut` affiche également ~2,6 Mo : les tables ne sont jamais allouées.
+
+
 
 Le gain total de **×147** est la composition de ×2,6 (micro) × ×13,7 (eval7 vs fisher) × ×1,6 (lut vs eval7) × ×2,5 (lut_par vs lut) ≈ ×147.
 

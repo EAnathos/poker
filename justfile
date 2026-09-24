@@ -108,6 +108,19 @@ bench-all: build _mkdir-results
 profile SC="sc6" EVAL="sort_free": build
     samply record {{EXE}} {{SC}} {{EVAL}}
 
+# Pic de RAM (VmHWM) — just mem sc6 [eval]  (sans eval → tous les évaluateurs)
+[unix]
+mem SC="sc6" EVAL="": build
+    #!/usr/bin/env bash
+    if [ -z "{{EVAL}}" ]; then
+        for eval in naive zero_alloc sort_free fisher eval7 lut lut_par; do
+            echo "── $eval ──"
+            {{EXE}} {{SC}} $eval --mem
+        done
+    else
+        {{EXE}} {{SC}} {{EVAL}} --mem
+    fi
+
 # ── Métriques ─────────────────────────────────────────────────────────────────
 
 # Extraction des métriques depuis un fichier JSON (usage : just stats results/sc6.json)

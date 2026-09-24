@@ -336,9 +336,13 @@ fn main() {
     //   bench                            → tous les scénarios, les trois évaluateurs
     let mut sc_filter: Option<usize> = None;
     let mut evals: Vec<&'static str> = Vec::new();
+    let mut show_mem = false;
 
     for arg in std::env::args().skip(1) {
         match arg.as_str() {
+            "--mem" => {
+                show_mem = true;
+            }
             "sc1" => sc_filter = Some(0),
             "sc2" => sc_filter = Some(1),
             "sc3" => sc_filter = Some(2),
@@ -454,4 +458,30 @@ fn main() {
         }
         println!();
     }
+
+    if show_mem {
+        print_peak_rss();
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn print_peak_rss() {
+    let status = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
+    for line in status.lines() {
+        if line.starts_with("VmHWM:") {
+            let kb: u64 = line
+                .split_whitespace()
+                .nth(1)
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0);
+            println!("peak RSS : {} kB  ({:.1} MB)", kb, kb as f64 / 1024.0);
+            return;
+        }
+    }
+    println!("peak RSS : inconnu");
+}
+
+#[cfg(not(target_os = "linux"))]
+fn print_peak_rss() {
+    println!("peak RSS : non supporté sur cette plateforme");
 }
