@@ -31,90 +31,31 @@ Des benchmarks complémentaires ont été réalisés sur un environnement Window
 
 → Spécifications matérielles et résultats complets : [`docs/benchmarks-setup-b.md`](docs/benchmarks-setup-b.md)
 
-### 2.2 Outils de profiling
-
-#### Installation
+### 2.2 Outils de mesure
 
 ```bash
-# cargo-binstall — installe les binaires Rust sans recompilation (à faire en premier)
-cargo install cargo-binstall
-
-# just — exécuteur de recettes (via binstall, pas de compilation)
+cargo install cargo-binstall  # à faire en premier
 cargo binstall just
-
-# Hyperfine et Samply via binstall (rapide, pas de compilation)
-just install-tools
+just install-tools             # Hyperfine + Samply
+just build                     # compile le binaire bench en release
 ```
 
-#### Activer les symboles de debug en release
+| Outil | Usage |
+|-------|-------|
+| **Hyperfine** | Mesure statistique de durée (100 runs, warmup 10) |
+| **Samply** | Flamegraph interactif → Firefox Profiler |
+| **perf** | Compteurs matériels bas niveau (cache-misses, cycles) |
+| **just** | Exécuteur de recettes — voir [`docs/commandes.md`](docs/commandes.md) |
 
-Requis pour que samply affiche les noms de fonctions Rust (et non des adresses hexadécimales).
-Ajouter dans `Cargo.toml` :
+#### Baseline Setup A — évaluateur `naive`, SC6 (500 000 itérations)
 
-```toml
-[profile.release]
-debug = 1        # line tables seulement — suffit pour samply
-strip = "none"   # garde les symboles — obligatoire
-```
-
-#### Compiler le binaire de benchmark en release
-
-```bash
-just build
-```
-
-#### Profiling avec Samply
-
-```bash
-just profile
-
-# Scénario et évaluateur explicites
-just profile sc6 sort_free
-just profile sc1 naive
-```
-
-Firefox Profiler s'ouvre automatiquement avec le flamegraph interactif.
-
-#### Protocole de mesure (Hyperfine)
-
-```bash
-# Scénario individuel — compare naive vs zero_alloc vs sort_free sur un scénario
-just bench sc1
-just bench sc2
-just bench sc3
-just bench sc4
-just bench sc5
-
-# SC6 haute précision (500k iters — ~2.5 s/run, 10 runs)
-just bench sc6
-
-# Comparatif naive vs zero_alloc vs sort_free sur l'ensemble SC1–SC6
-just bench-all
-```
-
-**Justification des paramètres :**
-- `--warmup 10` : écarte les 10 premiers runs (cache disque froid, montée en fréquence CPU).
-- `--runs 100` : réduit l'erreur standard à σ/√100 ≈ 10 % de σ.
-- `--shell=none` : retire le bruit du shell de la mesure (pas de fork/exec de bash).
-
-#### Extraction des métriques complètes depuis le JSON
-
-```bash
-just stats results/baseline.json
-```
-
-**Setup A**
-
-| Métrique | Valeur baseline |
-|----------|----------------|
-| Moyenne | <!-- µs ou ms --> |
-| Médiane | |
-| Écart-type | |
-| Variance | |
-| Min | |
-| Max | |
-
-> Isolation : <!-- décrire les processus parasites fermés, CPU governor fixé en performance, etc. -->
+| Métrique | Valeur |
+|----------|--------|
+| Moyenne | 2,497 s |
+| Médiane | 2,490 s |
+| Écart-type | 14 ms |
+| Min | 2,479 s |
+| Max | 2,525 s |
 
 Sur Setup B (Windows), le NT Heap génère une latence 3–4× supérieure sur les petites allocations. Correction : `mimalloc` via `#[global_allocator]` dans le binaire `bench` uniquement — gain ×2,1 en temps moyen (13,82 s → 6,59 s) et ×8,4 en stabilité (σ : 928 ms → 111 ms).
 
