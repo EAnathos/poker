@@ -6,7 +6,7 @@
 
 ## 1. Présentation du projet
 
-<img src="assets/gui.png" alt="Interface graphique du simulateur" width="600"/>
+![Interface graphique du simulateur](assets/gui.png)
 
 Ce projet implémente un **moteur de calcul de probabilités Monte Carlo** pour le Texas Hold'em en Rust. Étant donné un ensemble de mains et un board partiel, le moteur estime l'équité de chaque joueur par simulation répétée (50 000 à 500 000 itérations selon le scénario). Rust a été choisi dans une optique de découverte : le langage était nouveau, et ce projet, à la croisée des simulations haute fréquence, de la gestion mémoire fine et d'une interface graphique, correspondait aux thématiques du cours sur la performance système.
 
@@ -143,11 +143,11 @@ Le gain total **×147** se décompose : ×2,6 (micro) × ×13,7 (eval7/fisher) �
 
 #### Progression iters/s SC6
 
-<img src="assets/graph_sc6.png" alt="Progression iters/s SC6" width="600"/>
+<p align="center"><img src="assets/graph_sc6.png" alt="Progression iters/s SC6" width="600"/></p>
 
 #### lut vs lut_par — iters/s par scénario
 
-<img src="assets/graph_scenarios.png" alt="LUT vs LUT_PAR par scénario" width="600"/>
+<p align="center"><img src="assets/graph_scenarios.png" alt="LUT vs LUT_PAR par scénario" width="600"/></p>
 
 <div style="page-break-after: always;"></div>
 
