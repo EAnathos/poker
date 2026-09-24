@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use super::{Condition, Evaluator, SimOdds};
 use crate::card::{Card, Rank, Suit};
 use std::collections::HashSet;
