@@ -8,6 +8,8 @@
 
 Ce projet implémente un **moteur de calcul de probabilités Monte Carlo** pour le Texas Hold'em en Rust. Étant donné un ensemble de mains connues et un board partiel, le moteur estime l'équité de chaque joueur par simulation : il complète le board manquant et les cartes inconnues de façon aléatoire, évalue la meilleure main à 7 cartes pour chaque joueur, et répète l'opération des dizaines ou centaines de milliers de fois pour converger vers une probabilité de victoire.
 
+Rust a été choisi dans une optique de **découverte** : le langage était nouveau pour nous, et ce projet — à la croisée des simulations à haute fréquence, de la gestion mémoire fine et d'une interface graphique — correspondait bien à la fois à cette envie d'apprentissage et aux thématiques du cours sur la performance système.
+
 <div style="page-break-after: always;"></div>
 
 ## 2. Environnement & Métrologie (Baseline)
@@ -33,12 +35,7 @@ Des benchmarks complémentaires ont été réalisés sur un environnement Window
 
 ### 2.2 Outils de mesure
 
-```bash
-cargo install cargo-binstall  # à faire en premier
-cargo binstall just
-just install-tools             # Hyperfine + Samply
-just build                     # compile le binaire bench en release
-```
+→ Mise en place de l'environnement : [`docs/mise-en-place.md`](docs/mise-en-place.md)
 
 | Outil | Usage |
 |-------|-------|
@@ -874,8 +871,9 @@ Le gain total de **×147** est la composition de ×2,6 (micro) × ×13,7 (eval7 
 
 | Document | Contenu |
 |----------|---------|
-| [`docs/benchmarks-setup-b.md`](docs/benchmarks-setup-b.md) | Benchmarks Setup B (Windows) — données brutes et analyses §4.1 à §4.6 |
+| [`docs/mise-en-place.md`](docs/mise-en-place.md) | Installation des outils et activation des symboles debug |
 | [`docs/commandes.md`](docs/commandes.md) | Référence complète des commandes `just` |
+| [`docs/benchmarks-setup-b.md`](docs/benchmarks-setup-b.md) | Benchmarks Setup B (Windows) — données brutes et analyses §4.1 à §4.6 |
 | [`docs/gouvernance-ia.md`](docs/gouvernance-ia.md) | Constitution technique IA — directives `CLAUDE.md` et intégration workflow |
 
 
