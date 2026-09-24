@@ -101,7 +101,7 @@ La loi d'Amdahl suppose que la portion à optimiser disparaît sans coût de rem
 
 `eval5` à 50 % du runtime était trompeur : c'est parce qu'elle était appelée **21 fois** (C(7,5)) que son coût total était élevé. Optimiser l'implémentation d'`eval5` revenait à rendre plus rapide chacun des 21 aller-retours — sans jamais questionner si les 21 voyages étaient nécessaires. Le vrai levier était de supprimer l'énumération combinatoire (→ eval7, §4.4).
 
-![Flamegraph](assets/flamegraph.png)
+![Flamegraph](../assets/flamegraph.png)
 
 ---
 
