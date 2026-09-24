@@ -516,6 +516,7 @@ impl PokerApp {
         let mut selected: Option<Card> = None;
         let mut remove = false;
         let mut close = false;
+        let mut pick_random = false;
         let shift_held = ctx.input(|i| i.modifiers.shift);
 
         egui::Window::new("Choisir une carte")
@@ -564,6 +565,14 @@ impl PokerApp {
                     if ui.button("Fermer").clicked() {
                         close = true;
                     }
+                    if ui
+                        .button(
+                            egui::RichText::new("Aléatoire").color(Color32::from_rgb(80, 160, 220)),
+                        )
+                        .clicked()
+                    {
+                        pick_random = true;
+                    }
                     if current.is_some()
                         && ui
                             .button(egui::RichText::new("Supprimer").color(Color32::LIGHT_RED))
@@ -574,7 +583,23 @@ impl PokerApp {
                 });
             });
 
-        if let Some(card) = selected {
+        if pick_random {
+            let available: Vec<Card> = Rank::ALL
+                .iter()
+                .flat_map(|&r| Suit::ALL.iter().map(move |&s| Card { rank: r, suit: s }))
+                .filter(|c| !used.contains(c))
+                .collect();
+            if !available.is_empty() {
+                use rand::seq::IndexedRandom;
+                let card = *available.choose(&mut rand::rng()).unwrap();
+                self.set_card(picking, Some(card));
+                if shift_held {
+                    self.picking = Some(self.next_slot(picking));
+                } else {
+                    self.picking = None;
+                }
+            }
+        } else if let Some(card) = selected {
             self.set_card(picking, Some(card));
             if shift_held {
                 self.picking = Some(self.next_slot(picking));
@@ -616,7 +641,7 @@ impl PokerApp {
                 self.board.turn,
                 self.board.river,
             ],
-            iterations: 10_000,
+            iterations: 100_000,
         };
         let results = LutParEvaluator.run(&condition);
         self.odds = results
